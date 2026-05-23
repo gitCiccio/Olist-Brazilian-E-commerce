@@ -1,29 +1,61 @@
+import sys
+import traceback
+from logger.logger import get_logger
+
+log = get_logger(__name__)
+
 class ETLException(Exception):
-    pass
+    """Classe base per tutte le eccezioni della pipeline ETL."""
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)  # passa il messaggio a Exception
+
 
 class DatabaseConnectionError(ETLException):
-    pass
+    def __init__(self, reason: str):
+        # 'reason' è la causa originale (es. str(e) dal psycopg2)
+        super().__init__(f"Database connection error, caused by: {reason}")
+
 
 class ExtractDataError(ETLException):
-    pass
+    def __init__(self, reason: str):
+        super().__init__(f"Extract data error, caused by: {reason}")
 
-class DataExtractionError(ETLException):
-    pass
+
+class DataCleaningError(ETLException):
+    def __init__(self, reason: str):
+        super().__init__(f"Data cleaning error, caused by: {reason}")
+
 
 class LoadDataError(ETLException):
-    pass
+    def __init__(self, reason: str):
+        super().__init__(f"Load data error, caused by: {reason}")
 
-"""
-import sys
-from logger import get_logger
+def global_exception_handler(exc_type, exc_value, exc_tb):
+    # if the program is closed by a keyboard input
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_tb)
+        return
 
-logger = get_logger("global")
+    # ETL exceptions management
+    if issubclass(exc_type, DatabaseConnectionError):
+        log.critical(f"[DB] connection failed: {exc_value}")
+    elif issubclass(exc_type, ExtractDataError):
+        log.critical(f"[EXTRACT] extraction error: {exc_value}")
+    elif issubclass(exc_type, DataCleaningError):
+        log.critical(f"[CLEAN] cleaning error: {exc_value}")
+    elif issubclass(exc_type, LoadDataError):
+        log.critical(f"[LOAD] load data error: {exc_value}")
+    elif issubclass(exc_type, ETLException):
+        log.critical(f"[ETL] ETL pipeline error: {exc_value}")
+    else:
+        log.critical(
+            "Unknow error: ",
+            exc_info=(exc_type, exc_value, exc_tb)
+        )
 
-def global_exception_handler(exc_type, exc_value, exc_traceback):
-    logger.critical(
-        "Eccezione non gestita!",
-        exc_info=(exc_type, exc_value, exc_traceback)
-    )
+    log.critical("Full traceback: \n" + "" .join(
+        traceback.format_exception(exc_type, exc_value, exc_tb)
+    ))
 
 sys.excepthook = global_exception_handler
-"""
