@@ -56,7 +56,7 @@ CREATE TABLE fact_sell (
     order_item_id   SMALLINT       NOT NULL,
     price           DECIMAL(10, 2) NOT NULL,
     freight_value   DECIMAL(10, 2) NOT NULL,
-    payment_value   DECIMAL(10, 2),
+    payment_value   DECIMAL(10, 2) NOT NULL,
     review_score    SMALLINT       CHECK (review_score BETWEEN 1 AND 5),
     delivery_days   SMALLINT,
     product_id      UUID NOT NULL,
@@ -76,8 +76,12 @@ CREATE TABLE etl_checkpoint (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_file VARCHAR(255) NOT NULL,
     last_row_extracted INT NOT NULL,
+    total_rows INT NOT NULL,
     status VARCHAR(50) NOT NULL check ( status in ('RUNNING', 'FAILED', 'COMPLETED')),
     started_at TIMESTAMP DEFAULT NOW() NOT NULL,
     blocked_at TIMESTAMP,
-    completed_at TIMESTAMP
-)
+    completed_at TIMESTAMP,
+    last_committed_at TIMESTAMP
+);
+
+CREATE INDEX idx_etl_checkpoint_source ON etl_checkpoint (source_file, status, started_at DESC);
