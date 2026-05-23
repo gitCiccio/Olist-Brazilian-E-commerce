@@ -1,9 +1,14 @@
 import os
+
+import psycopg2
 from psycopg2 import connect
 from pandas import DataFrame
 from dotenv import load_dotenv
+
+from exception import exceptions
 from logger import logger as log
 from logger.logger import get_logger
+from exception import *
 
 log = get_logger(__name__)
 
@@ -23,12 +28,18 @@ class db_connection:
         if not hasattr(self, 'initialized'):
             load_dotenv()
             self.database_url = os.getenv("DATABASE_URL")
+            self.database_name = os.getenv("DATABASE_NAME")
             self.connection = None
             self.cursor = None
             self.initialized = True
 
     def connect(self):
-        pass
+        try:
+            self.connection = psycopg2.connect(self.database_url)
+            self.cursor = self.connection.cursor()
+        except psycopg2.OperationalError as e:
+            log.error(f"Unable to connect to {self.database_name}, error: {e}")
+            raise exceptions.DatabaseConnectionError from e
 
     def disconnect(self):
         pass
