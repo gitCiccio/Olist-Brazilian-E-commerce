@@ -1,55 +1,91 @@
-from pandas.core.ops import missing
-
+from sqlalchemy import text
 from logger.logger import AppLogger
 import pandas as pd
 
 log = AppLogger(name="extract.extract", log_file="extract.log")
 BATCH_SIZE = 1000
 
-def get_or_create_checkpoint(db, source_file, total_rows) -> dict:
-    log.info("Checkpoint creation")
-    log.info(f"Source file: {source_file}")
 
-    existing = db.execute(
-        "SELECT * FROM etl_checkpoint WHERE source_file = %s"
-        "AND status in ('RUNNING', 'FAILED') ORDER BY started_at DESC LIMIT 1",
-        (source_file,)
-    ).fetch_one()
+def _get_or_create_checkpoint(conn, source_file: str, total_rows: int) -> dict:
+    log.info(f"[checkpoint] Source file: {source_file}")
 
-    if existing:
-        log.info(f"Resuming {source_file} from row {existing['last_row_extracted']}")
-        return dict(existing)
+    result = conn.execute(
+        text("SELECT id, last_row_extracted FROM etl_checkpoint "
+             "WHERE source_file = :sf "
+             "AND status IN ('RUNNING', 'FAILED') "
+             "ORDER BY started_at DESC LIMIT 1"),
+        {"sf": source_file}
+    ).mappings().first()
 
-    db.execute(
-        "INSERT INTO etl_checkpoint (source_file, last_row_extracted, total_rows, status) VALUES (%s, 0, %s, 'RUNNING')",
-        (source_file, total_rows)
-    )
-    db.commit()
+    if result:
+        log.info(f"[checkpoint] Resuming {source_file} from row {result['last_row_extracted']}")
+        return dict(result)
 
-    return db.execute(
-        "SELECT * FROM etl_checkpoint WHERE source_file = %s ORDER BY started_at DESC LIMIT 1",
-        (source_file,)
-    ).fetch_one()
+    result = conn.execute(
+        text("INSERT INTO etl_checkpoint (source_file, last_row_extracted, total_rows, status) "
+             "VALUES (:sf, 0, :tr, 'RUNNING') RETURNING id, last_row_extracted"),
+        {"sf": source_file, "tr": total_rows}
+    ).mappings().first()
 
-def extract_batches(csv_path: str, start_row: int):
-    log.info(f"Extracting {start_row} rows from {csv_path}")
-    df = pd.read_csv(csv_path, skiprows=range(1, start_row + 1))
+    log.info(f"[checkpoint] Created new checkpoint for {source_file}")
+    return dict(result)
 
-    for i in range(0, len(df), BATCH_SIZE):
-        batch = df.iloc[i : i + BATCH_SIZE]
-        yield batch, start_row + i + len(batch)
 
-def extract_csv(csv_path: str, columns: list[str] = None) -> pd.DataFrame:
-    log.info(f"Extracting {columns} from {csv_path}")
+def extract_and_stage(
+    csv_path: str,
+    columns: list[str],
+    staging_table: str,
+    engine,
+    truncate: bool = False
+) -> pd.DataFrame:
 
-    df = pd.read_csv(csv_path, dtype=str)
-
+    df_full = pd.read_csv(csv_path, dtype=str)
     if columns:
-        missing = [column for column in columns if column not in df.columns]
-        if missing:
-            log.error(f"Missing columns: {missing}")
-            raise ValueError(f"Columns not found in {csv_path}: {missing}")
-        df = df[columns]
+        df_full = df_full[columns]
+    total_rows = len(df_full)
 
-    log.info(f"Extracted {len(df)} rows, {len(df.columns)} columns from {csv_path}")
-    return df
+    with engine.begin() as conn:
+        if truncate:
+            conn.execute(text(f"TRUNCATE TABLE staging.{staging_table}"))
+            conn.execute(
+                text("UPDATE etl_checkpoint SET status = 'FAILED', blocked_at = NOW() "
+                     "WHERE source_file = :sf AND status IN ('RUNNING', 'COMPLETED')"),
+                {"sf": csv_path}
+            )
+            log.info(f"[staging] Truncated staging.{staging_table} + reset checkpoint")
+
+        checkpoint = _get_or_create_checkpoint(conn, csv_path, total_rows)
+        start_row = checkpoint['last_row_extracted']
+        checkpoint_id = checkpoint['id']
+
+        log.info(f"[extract] Resuming {csv_path} from row {start_row}")
+
+        df_to_process = df_full.iloc[start_row:]
+        for i in range(0, len(df_to_process), BATCH_SIZE):
+            batch = df_to_process.iloc[i:i + BATCH_SIZE]
+            last_row = start_row + i + len(batch)
+
+            batch.to_sql(
+                name=staging_table,
+                con=conn,
+                schema='staging',
+                if_exists='append',
+                index=False,
+                method='multi'
+            )
+            conn.execute(
+                text("UPDATE etl_checkpoint "
+                     "SET last_row_extracted = :row, last_committed_at = NOW() "
+                     "WHERE id = :id"),
+                {"row": last_row, "id": str(checkpoint_id)}
+            )
+            log.info(f"[extract] Batch {i // BATCH_SIZE + 1}: rows {start_row + i} → {last_row}")
+
+        conn.execute(
+            text("UPDATE etl_checkpoint SET status = 'COMPLETED', completed_at = NOW() "
+                 "WHERE id = :id"),
+            {"id": str(checkpoint_id)}
+        )
+        log.info(f"[extract] {csv_path} → staging.{staging_table} COMPLETED ({total_rows} rows)")
+
+    return df_full
