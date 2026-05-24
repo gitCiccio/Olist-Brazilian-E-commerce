@@ -14,7 +14,7 @@ def get_or_create_checkpoint(db, source_file, total_rows) -> dict:
         "SELECT * FROM etl_checkpoint WHERE source_file = %s"
         "AND status in ('RUNNING', 'FAILED') ORDER BY started_at DESC LIMIT 1",
         (source_file,)
-    ).fetchone()
+    ).fetch_one()
 
     if existing:
         log.info(f"Resuming {source_file} from row {existing['last_row_extracted']}")
@@ -29,7 +29,7 @@ def get_or_create_checkpoint(db, source_file, total_rows) -> dict:
     return db.execute(
         "SELECT * FROM etl_checkpoint WHERE source_file = %s ORDER BY started_at DESC LIMIT 1",
         (source_file,)
-    ).fetchone()
+    ).fetch_one()
 
 def extract_batches(csv_path: str, start_row: int):
     log.info(f"Extracting {start_row} rows from {csv_path}")
