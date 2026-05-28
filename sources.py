@@ -13,11 +13,20 @@ SOURCES = {
     },
     "dim_payment": {
         "file": "data/raw/olist_order_payments_dataset.csv",
-        "columns": ["order_id", "payment_type"]
+        "columns": ["order_id", "payment_type", "payment_value"]
     },
     "dim_date": {
         "file": "data/raw/olist_orders_dataset.csv",
         "columns": ["order_id","customer_id", "order_purchase_timestamp"]
+    },
+    "review_info": {
+        "file": "data/raw/olist_order_reviews_dataset.csv",
+        "columns": ["review_id", "order_id", "review_score"]
+
+    },
+    "order_items_info": {
+        "file": "data/raw/olist_order_items_dataset.csv",
+        "columns": ["order_id", "order_item_id", "product_id", "seller_id", "price", "freight_value"]
     },
     "fact_sell": {
         "file": "data/raw/olist_order_items_dataset.csv",
