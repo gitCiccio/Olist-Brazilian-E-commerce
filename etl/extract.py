@@ -41,14 +41,19 @@ def extract_and_stage(
 
     df_full = pd.read_csv(csv_path, dtype=str)
     if columns:
+        missing_cols = [c for c in columns if c not in df_full.columns]
+        if missing_cols:
+            log.error(f"[extract] Missing columns: {missing_cols}")
+            raise ValueError(f"Columns not found in {csv_path}: {missing_cols}")
         df_full = df_full[columns]
+
     total_rows = len(df_full)
 
     with engine.begin() as conn:
         if truncate:
             conn.execute(text(f"TRUNCATE TABLE staging.{staging_table}"))
             conn.execute(
-                text("UPDATE etl_checkpoint SET status = 'FAILED', blocked_at = NOW() "
+                text("UPDATE etl_checkpoint SET status = 'FAILED' "
                      "WHERE source_file = :sf AND status IN ('RUNNING', 'COMPLETED')"),
                 {"sf": csv_path}
             )

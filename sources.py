@@ -17,7 +17,7 @@ SOURCES = {
     },
     "dim_date": {
         "file": "data/raw/olist_orders_dataset.csv",
-        "columns": ["order_id","customer_id", "order_purchase_timestamp"]
+        "columns": ["order_id","customer_id", "order_purchase_timestamp", "order_delivered_customer_date"]
     },
     "review_info": {
         "file": "data/raw/olist_order_reviews_dataset.csv",
@@ -27,9 +27,5 @@ SOURCES = {
     "order_items_info": {
         "file": "data/raw/olist_order_items_dataset.csv",
         "columns": ["order_id", "order_item_id", "product_id", "seller_id", "price", "freight_value"]
-    },
-    "fact_sell": {
-        "file": "data/raw/olist_order_items_dataset.csv",
-        "columns": ["order_id", "order_item_id", "seller_id", "price", "freight_value"]
     }
 }
