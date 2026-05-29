@@ -17,8 +17,8 @@ CREATE TABLE dim_product (
 
 CREATE TABLE dim_date (
     surrogate_key   UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
-    natural_key     VARCHAR(255) NOT NULL UNIQUE,
-    full_date       DATE    NOT NULL,
+    natural_key     INTEGER NOT NULL UNIQUE,
+    full_date       DATE    NOT NULL UNIQUE,
     day             SMALLINT NOT NULL,
     month           SMALLINT NOT NULL,
     quarter         SMALLINT NOT NULL,
@@ -27,7 +27,6 @@ CREATE TABLE dim_date (
 
 CREATE TABLE dim_payment (
     surrogate_key       UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    natural_key         VARCHAR(255) NOT NULL UNIQUE,
     payment_type        VARCHAR(100) NOT NULL
 );
 

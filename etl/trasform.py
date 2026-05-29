@@ -131,7 +131,6 @@ def transform_dim_payment(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame,
         payment_data_frame_copy.groupby('order_id')['payment_type']
         .agg(lambda x: x.value_counts().idxmax())
         .reset_index()
-        .rename(columns={'order_id': 'natural_key'})
     )
 
     # --- FACT LOOKUP value: order_id → somma pagamenti ---
@@ -139,7 +138,6 @@ def transform_dim_payment(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame,
         payment_data_frame_copy.groupby('order_id')['payment_value']
         .sum()
         .reset_index()
-        .rename(columns={'order_id': 'natural_key'})
     )
 
     log.info(f"---------- quality report dim_payment ----------")
@@ -148,7 +146,7 @@ def transform_dim_payment(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame,
     log.info(f"[dim_payment] Null values      : {null_value_count}")
     log.info(f"[dim_payment] Negative values  : {negative_count}")
     log.info(f"[dim_payment] DIM types        : {dim['payment_type'].tolist()}")
-    log.info(f"[dim_payment] Unique order_id  : {fact_lookup_type['natural_key'].nunique()}")
+    log.info(f"[dim_payment] Unique order_id  : {fact_lookup_type['order_id'].nunique()}")
 
     # da verificare se le info tra gli id combaciano
     return dim, fact_lookup_type, fact_lookup_value
@@ -205,9 +203,14 @@ def transform_dim_customers(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(columns={'customer_id': 'natural_key'})
     return df[['natural_key', 'customer_unique_id', 'customer_city', 'customer_state']]
 
-def transform_dim_date(df: pd.DataFrame) -> tuple[Any, Any, Any]:
+def transform_dim_date(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Return:
+      1. dim_date_df       → tabella puramente dimensionale (1 riga/giorno)
+      2. order_fact_lookup → mapping order_id → (full_date, customer_id, delivery_days)
+    """
     df = df.copy()
-    before_dedup = total_input = len(df)
+    total_input = len(df)
 
     # --- order_purchase_timestamp ---
     df['order_purchase_timestamp'] = pd.to_datetime(
@@ -228,11 +231,10 @@ def transform_dim_date(df: pd.DataFrame) -> tuple[Any, Any, Any]:
     if nat_delivered_count > 0:
         log.warning(f"[dim_date] {nat_delivered_count} null delivery dates (ordini non consegnati)")
 
-    # --- delivery_days: calcola PRIMA dei check ---
+    # --- delivery_days ---
     df['delivery_days'] = (
         df['order_delivered_customer_date'] - df['order_purchase_timestamp']
     ).dt.days
-
     negative_mask = df['delivery_days'] < 0
     if negative_mask.any():
         log.warning(f"[dim_date] {negative_mask.sum()} negative delivery_days → NaN")
@@ -248,26 +250,29 @@ def transform_dim_date(df: pd.DataFrame) -> tuple[Any, Any, Any]:
     df['quarter']   = df['order_purchase_timestamp'].dt.quarter.astype('int16')
     df['year']      = df['order_purchase_timestamp'].dt.year.astype('int16')
 
-    # --- Deduplicazione ---
-    df = df.drop_duplicates(subset=['order_id'], keep='first')
-    after_dedup = len(df)
+    # --- DIMENSIONE DATE: 1 riga per full_date univoca ---
+    date_cols = ['full_date', 'day', 'month', 'quarter', 'year']
+    dim_date_df = df[date_cols].drop_duplicates().sort_values('full_date').reset_index(drop=True)
+    dim_date_df['natural_key'] = dim_date_df['full_date'].apply(
+        lambda d: int(d.strftime('%Y%m%d'))
+    )
+
+    # --- LOOKUP FACT TABLE: order_id → (full_date, customer_id, delivery_days) ---
+    # 1 riga per order_id, pre-dedup rispetto alla dimensione tempo
+    order_fact_lookup = (
+        df[['order_id', 'full_date', 'customer_id', 'delivery_days']]
+        .drop_duplicates(subset=['order_id'], keep='first')
+        .copy()
+    )
 
     log.info(f"---------- quality report dim_date ----------")
-    log.info(f"[dim_date] Input rows        : {total_input}")
-    log.info(f"[dim_date] Unique order_id   : {df['order_id'].nunique()}")
-    log.info(f"[dim_date] Deduplicated      : {before_dedup} → {after_dedup} rows "
-             f"({before_dedup - after_dedup} duplicates removed)")
-    log.info(f"[dim_date] Null delivered    : {nat_delivered_count}")
-    log.info(f"[dim_date] Null delivery_days: {null_delivery_count}")
-    log.info(f"[dim_date] Year distribution : {df['year'].value_counts().sort_index().to_dict()}")
+    log.info(f"[dim_date] Input orders          : {total_input}")
+    log.info(f"[dim_date] Unique orders (lookup): {len(order_fact_lookup)}")
+    log.info(f"[dim_date] Unique full_date      : {dim_date_df['full_date'].nunique()}")
+    log.info(f"[dim_date] Null delivered dates  : {nat_delivered_count}")
+    log.info(f"[dim_date] Null delivery_days    : {null_delivery_count}")
 
-    df = df.rename(columns={'order_id': 'natural_key'})
-    return (
-        df[['natural_key', 'full_date', 'day', 'month', 'quarter', 'year']],
-        df[['natural_key', 'customer_id']],
-        df[['natural_key', 'delivery_days']]
-    )
-# valori mancanti -> without_category
+    return dim_date_df[['natural_key', 'full_date', 'day', 'month', 'quarter', 'year']], order_fact_lookup
 def transform_dim_product(df_product: pd.DataFrame) -> pd.DataFrame:
     df_product = df_product.copy()
     before_dedup = total_input = len(df_product)
@@ -310,6 +315,9 @@ def transform_review_info(df: pd.DataFrame) -> pd.DataFrame:
     data_frame_review_copy = df.copy()
     total_input = len(data_frame_review_copy)
 
+    data_frame_review_copy['review_score'] = pd.to_numeric(
+        data_frame_review_copy['review_score'], errors='coerce'
+    )
 
     invalid_mask = ~data_frame_review_copy['review_score'].between(1, 5)
     invalid_mask_count = invalid_mask.sum()
@@ -370,8 +378,7 @@ df_orders_lookup = df[['natural_key', 'customer_id']] dal return di transform_di
 """
 def transform_fact_table(
     df_items: pd.DataFrame,
-    df_customer_lookup: pd.DataFrame,
-    df_delivery_lookup: pd.DataFrame,
+    order_fact_lookup: pd.DataFrame,
     df_payment_type_lookup: pd.DataFrame,
     df_payment_value_lookup: pd.DataFrame,
     df_review_lookup: pd.DataFrame
@@ -379,92 +386,94 @@ def transform_fact_table(
     items_data_frame_copy = df_items.copy()
     total_input = len(items_data_frame_copy)
 
-    # creazione della natural key composta
-    items_data_frame_copy['natural_key'] = items_data_frame_copy['order_id'] + '_' + items_data_frame_copy['order_item_id'].astype(str)
+    items_data_frame_copy['natural_key'] = (
+        items_data_frame_copy['order_id'] + '_' +
+        items_data_frame_copy['order_item_id'].astype(str)
+    )
 
     items_data_frame_copy['price'] = pd.to_numeric(items_data_frame_copy['price'], errors='coerce')
     items_data_frame_copy['freight_value'] = pd.to_numeric(items_data_frame_copy['freight_value'], errors='coerce')
 
+    items_data_frame_copy['order_id'] = items_data_frame_copy['order_id'].astype(str)
+    order_fact_lookup = order_fact_lookup.copy()
+    order_fact_lookup['order_id'] = order_fact_lookup['order_id'].astype(str)
+    df_payment_type_lookup = df_payment_type_lookup.copy()
+    df_payment_type_lookup['order_id'] = df_payment_type_lookup['order_id'].astype(str)
+    df_payment_value_lookup = df_payment_value_lookup.copy()
+    df_payment_value_lookup['order_id'] = df_payment_value_lookup['order_id'].astype(str)
+    df_review_lookup = df_review_lookup.copy()
+    df_review_lookup['order_id'] = df_review_lookup['order_id'].astype(str)
 
-    # join su tutti i lookup
-    items_data_frame_copy = (
-        items_data_frame_copy
-        .merge(
-            df_customer_lookup.rename(columns={'natural_key': 'order_id'}),
-            on='order_id', how='left')
+    # --- Merge con order_fact_lookup: full_date, customer_id, delivery_days ---
+    items_data_frame_copy = items_data_frame_copy.merge(
+        order_fact_lookup[['order_id', 'full_date', 'customer_id', 'delivery_days']],
+        on='order_id',
+        how='left'
     )
 
-
-    items_data_frame_copy = (
-        items_data_frame_copy
-        .merge(
-            df_delivery_lookup.rename(columns={'natural_key': 'order_id'}),
-                                                        on='order_id', how='left')
+    # --- Merge payment_type: NIENTE RENAME, order_id è già corretto ---
+    items_data_frame_copy = items_data_frame_copy.merge(
+        df_payment_type_lookup[['order_id', 'payment_type']],
+        on='order_id',
+        how='left'
     )
 
-    items_data_frame_copy = (
-        items_data_frame_copy
-        .merge(
-            df_payment_type_lookup.rename(columns={'natural_key': 'order_id'}),
-                                                        on='order_id', how='left')
+    # --- Merge payment_value ---
+    items_data_frame_copy = items_data_frame_copy.merge(
+        df_payment_value_lookup[['order_id', 'payment_value']],
+        on='order_id',
+        how='left'
     )
 
-    items_data_frame_copy = (
-        items_data_frame_copy
-        .merge(df_payment_value_lookup.rename(columns={'natural_key': 'order_id'}),
-                                                        on='order_id', how='left')
+    # --- Merge review_score ---
+    items_data_frame_copy = items_data_frame_copy.merge(
+        df_review_lookup[['order_id', 'review_score']],
+        on='order_id',
+        how='left'
     )
 
-    items_data_frame_copy = (
-        items_data_frame_copy
-        .merge(df_review_lookup.rename(columns={'natural_key': 'order_id'}),
-               on='order_id', how='left')
-    )
-
-    # cleaning delle misure
+    # --- Cleaning ---
     for column in ['price', 'freight_value', 'payment_value']:
         null_count = items_data_frame_copy[column].isnull().sum()
         if null_count > 0:
-            log.warning(f"[fact_vendita] {null_count} null {column} → 0")
+            log.warning(f"[fact_sell] {null_count} null {column} → 0")
             items_data_frame_copy[column] = items_data_frame_copy[column].fillna(0)
 
         negative_mask = items_data_frame_copy[column] < 0
         if negative_mask.any():
-            log.warning(f"[fact_vendita] {negative_mask.sum()} negative {column} → 0")
+            log.warning(f"[fact_sell] {negative_mask.sum()} negative {column} → 0")
             items_data_frame_copy.loc[negative_mask, column] = 0
 
-    invalid_review = ~items_data_frame_copy['review_score'].between(1, 5) & items_data_frame_copy['review_score'].notna()
+    invalid_review = (
+        ~items_data_frame_copy['review_score'].between(1, 5)
+        & items_data_frame_copy['review_score'].notna()
+    )
     if invalid_review.any():
-        log.warning(f"[fact_vendita] {invalid_review.sum()} invalid review_score → NaN")
+        log.warning(f"[fact_sell] {invalid_review.sum()} invalid review_score → NaN")
         items_data_frame_copy.loc[invalid_review, 'review_score'] = np.nan
 
-    # delivery_days: negativi → NaN (già gestito nel lookup, doppio check)
     invalid_delivery = items_data_frame_copy['delivery_days'] < 0
     if invalid_delivery.any():
-        log.warning(f"[fact_vendita] {invalid_delivery.sum()} negative delivery_days → NaN")
+        log.warning(f"[fact_sell] {invalid_delivery.sum()} negative delivery_days → NaN")
         items_data_frame_copy.loc[invalid_delivery, 'delivery_days'] = np.nan
 
-    log.info(f"---------- quality report fact_vendita ----------")
-    log.info(f"[fact_vendita] Input rows         : {total_input}")
-    log.info(f"[fact_vendita] Output rows        : {len(items_data_frame_copy)}")
-    log.info(f"[fact_vendita] Null customer_id   : {items_data_frame_copy['customer_id'].isna().sum()}")
-    log.info(f"[fact_vendita] Null payment_type  : {items_data_frame_copy['payment_type'].isna().sum()}")
-    log.info(f"[fact_vendita] Null review_score  : {items_data_frame_copy['review_score'].isna().sum()}")
-    log.info(f"[fact_vendita] Null delivery_days : {items_data_frame_copy['delivery_days'].isna().sum()}")
-    log.info(f"[fact_vendita] Avg price          : {items_data_frame_copy['price'].mean():.2f}")
-    log.info(f"[fact_vendita] Avg freight_value  : {items_data_frame_copy['freight_value'].mean():.2f}")
-    log.info(f"[fact_vendita] Avg review_score   : {items_data_frame_copy['review_score'].mean():.2f}")
-    log.info(f"[fact_vendita] Avg delivery_days  : {items_data_frame_copy['delivery_days'].mean():.1f}")
+    log.info(f"---------- quality report fact_sell ----------")
+    log.info(f"[fact_sell] Input rows         : {total_input}")
+    log.info(f"[fact_sell] Output rows        : {len(items_data_frame_copy)}")
+    log.info(f"[fact_sell] Null customer_id   : {items_data_frame_copy['customer_id'].isna().sum()}")
+    log.info(f"[fact_sell] Null payment_type  : {items_data_frame_copy['payment_type'].isna().sum()}")
+    log.info(f"[fact_sell] Null review_score  : {items_data_frame_copy['review_score'].isna().sum()}")
+    log.info(f"[fact_sell] Null delivery_days : {items_data_frame_copy['delivery_days'].isna().sum()}")
 
-    # --- Passo 6: Seleziona colonne finali ---
     return items_data_frame_copy[[
-        'natural_key',  # order_id_order_item_id
-        'order_id',  # per il join con date_id nel load
+        'natural_key',
+        'order_id',
+        'full_date',
         'order_item_id',
-        'product_id',  # FK → dim_product
-        'seller_id',  # FK → dim_seller
-        'customer_id',  # FK → dim_customer
-        'payment_type',  # FK → dim_payment
+        'product_id',
+        'seller_id',
+        'customer_id',
+        'payment_type',
         'price',
         'freight_value',
         'payment_value',

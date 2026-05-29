@@ -15,10 +15,12 @@ def load_dim_sellers(df_sellers: pd.DataFrame, engine) -> None:
         dt_sellers_copy.to_sql(
             name='dim_seller',
             con=connection,
-            schema='olist_star_schema',
+            schema='public',
             if_exists='append',
             index=False,
             method='multi',
+            chunksize=1000
+
         )
 
     log.info(f"[load] dim_seller: {len(dt_sellers_copy)} rows loaded")
@@ -30,10 +32,12 @@ def load_dim_customers(df_customers: pd.DataFrame, engine) -> None:
         df_customers_copy.to_sql(
             name='dim_customer',
             con=connection,
-            schema='olist_star_schema',
+            schema='public',
             if_exists='append',
             index=False,
             method='multi',
+            chunksize=1000
+
         )
 
     log.info(f"[load] dim_customer: {len(df_customers_copy)} rows loaded")
@@ -45,10 +49,12 @@ def load_dim_product(df_product: pd.DataFrame, engine) -> None:
         df_product_copy.to_sql(
             name='dim_product',
             con=connection,
-            schema='olist_star_schema',
+            schema='public',
             if_exists='append',
             index=False,
             method='multi',
+            chunksize=1000
+
         )
 
     log.info(f"[load] dim_product: {len(df_product_copy)} rows loaded")
@@ -60,89 +66,175 @@ def load_dim_payment(df_payment: pd.DataFrame, engine) -> None:
         df_payment_copy.to_sql(
             name='dim_payment',
             con=connection,
-            schema='olist_star_schema',
+            schema='public',
             if_exists='append',
             index=False,
             method='multi',
+            chunksize= 1000
         )
 
     log.info(f"[load] dim_payment: {len(df_payment_copy)} rows loaded")
 
-def load_dim_date(df_date: pd.DataFrame, engine) -> DataFrame | Iterator[DataFrame]:
+def load_dim_date(df_date: pd.DataFrame, engine) -> tuple[int, pd.DataFrame]:
+    """
+    Carica dim_date con upsert (INSERT ... ON CONFLICT) per evitare duplicati.
+    Restituisce (num_rows_loaded, date_mapping).
+    """
     df_date_copy = df_date.copy()
 
-    df_date_copy = df_date_copy.drop(columns=['natural_key'])
+    with engine.connect() as conn:
+        # 1. Controlla quante date esistono già
+        existing = pd.read_sql(
+            "SELECT natural_key, surrogate_key, full_date FROM public.dim_date",
+            conn
+        )
 
-    with engine.begin() as connection:
-        df_date_copy.to_sql(
+    if not existing.empty:
+        # 2. Filtra solo le date non già presenti
+        df_new = df_date_copy[
+            ~df_date_copy['natural_key'].isin(existing['natural_key'])
+        ].copy()
+        log.info(f"[load] dim_date: {len(existing)} date già presenti, "
+                 f"{len(df_new)} nuove da inserire")
+    else:
+        df_new = df_date_copy.copy()
+        log.info(f"[load] dim_date: {len(df_new)} nuove date da inserire")
+
+    if df_new.empty:
+        log.info("[load] dim_date: nessuna nuova data da caricare")
+        return 0, existing
+
+    # 3. Carica le nuove righe
+    with engine.begin() as conn:
+        df_new.to_sql(
             name='dim_date',
-            con=connection,
-            schema='olist_star_schema',
+            con=conn,
+            schema='public',
             if_exists='append',
             index=False,
-            method='multi'
+            method='multi',
+            chunksize=1000
         )
 
-    with engine.connect() as connection:
+    # 4. Reload complete mapping
+    with engine.connect() as conn:
         date_mapping = pd.read_sql(
-            "SELECT date_id, full_date FROM olist_star_schema.dim_date",
-            connection
+            "SELECT surrogate_key, full_date FROM public.dim_date",
+            conn
         )
 
-    log.info(f"[load] dim_date: {len(df_date_copy)} rows loaded")
-    return date_mapping
+    log.info(f"[load] dim_date: {len(df_new)} righe caricate, "
+             f"totale {len(date_mapping)} righe in tabella")
+    return len(df_new), date_mapping
+
 
 def load_fact_table(
-        df_fact: pd.DataFrame,
-        df_dim_date: pd.DataFrame,   # natural_key(=order_id), full_date
-        date_mapping: pd.DataFrame,
-        engine,
+    df_fact: pd.DataFrame,
+    date_mapping: pd.DataFrame,
+    engine,
 ) -> None:
     df = df_fact.copy()
 
-    # Passo 1: order_id → full_date
+    # --- Passo 1: full_date → date_id ---
+    date_mapping = date_mapping.copy()
+    if date_mapping['full_date'].dtype == 'datetime64[ns]':
+        date_mapping['full_date'] = date_mapping['full_date'].dt.date
+    df['full_date'] = pd.to_datetime(df['full_date']).dt.date
+
+    df = df.merge(date_mapping, on='full_date', how='left').rename(
+        columns={'surrogate_key': 'date_id'}
+    )
+
+    # --- Passo 2: payment_type → payment_id (surrogate_key) ---
+    with engine.connect() as conn:
+        payment_map = pd.read_sql(
+            "SELECT surrogate_key, payment_type FROM public.dim_payment",
+            conn
+        )
     df = df.merge(
-        df_dim_date.rename(columns={'natural_key': 'order_id'})[['order_id', 'full_date']],
-        on='order_id',
+        payment_map.rename(columns={'surrogate_key': 'payment_id'}),
+        on='payment_type',
         how='left'
     )
 
-    # Passo 2: full_date → date_id
-    date_mapping['full_date'] = pd.to_datetime(date_mapping['full_date']).dt.date
-    df['full_date'] = pd.to_datetime(df['full_date']).dt.date
+    # --- Passo 3: customer_id → customer_id (surrogate_key) ---
+    with engine.connect() as conn:
+        customer_map = pd.read_sql(
+            "SELECT surrogate_key, natural_key FROM public.dim_customer",
+            conn
+        )
+    df = df.merge(
+        customer_map.rename(columns={'surrogate_key': 'customer_id_fk'})
+                    .rename(columns={'natural_key': 'customer_id_nat'}),
+        left_on='customer_id',
+        right_on='customer_id_nat',
+        how='left'
+    )
 
-    df = df.merge(date_mapping, on='full_date', how='left')
+    # --- Passo 4: seller_id → seller_id (surrogate_key) ---
+    with engine.connect() as conn:
+        seller_map = pd.read_sql(
+            "SELECT surrogate_key, natural_key FROM public.dim_seller",
+            conn
+        )
+    df = df.merge(
+        seller_map.rename(columns={'surrogate_key': 'seller_id_fk'})
+                  .rename(columns={'natural_key': 'seller_id_nat'}),
+        left_on='seller_id',
+        right_on='seller_id_nat',
+        how='left'
+    )
 
-    # Passo 3: verifica FK — quanti order_id non hanno date_id?
-    null_date_id = df['date_id'].isna().sum()
-    if null_date_id > 0:
-        log.warning(f"[load] fact_vendita: {null_date_id} righe senza date_id → escluse")
-        df = df.dropna(subset=['date_id'])
+    # --- Passo 5: product_id → product_id (surrogate_key) ---
+    with engine.connect() as conn:
+        product_map = pd.read_sql(
+            "SELECT surrogate_key, natural_key FROM public.dim_product",
+            conn
+        )
+    df = df.merge(
+        product_map.rename(columns={'surrogate_key': 'product_id_fk'})
+                   .rename(columns={'natural_key': 'product_id_nat'}),
+        left_on='product_id',
+        right_on='product_id_nat',
+        how='left'
+    )
 
-    # Passo 4: seleziona solo le colonne della tabella DW
+    # --- Passo 6: verifica FK ---
+    for fk in ['date_id', 'payment_id', 'customer_id_fk', 'seller_id_fk', 'product_id_fk']:
+        null_count = df[fk].isna().sum()
+        if null_count > 0:
+            log.warning(f"[load] fact_sell: {null_count} righe senza {fk} → escluse")
+            df = df.dropna(subset=[fk])
+
+    # --- Passo 7: seleziona e rinomina per il DDL ---
     df = df[[
-        'order_id',
+        'natural_key',
         'order_item_id',
-        'date_id',
-        'product_id',
-        'customer_id',
-        'seller_id',
-        'payment_type',
         'price',
         'freight_value',
         'payment_value',
         'review_score',
-        'delivery_days'
-    ]]
+        'delivery_days',
+        'product_id_fk',
+        'date_id',
+        'payment_id',
+        'customer_id_fk',
+        'seller_id_fk'
+    ]].rename(columns={
+        'product_id_fk': 'product_id',
+        'customer_id_fk': 'customer_id',
+        'seller_id_fk': 'seller_id'
+    })
 
     with engine.begin() as connection:
         df.to_sql(
-            name='fact_vendita',
+            name='fact_sell',
             con=connection,
-            schema='olist_star_schema',
+            schema='public',
             if_exists='append',
             index=False,
-            method='multi'
+            method='multi',
+            chunksize=1000
         )
 
-    log.info(f"[load] fact_vendita: {len(df)} rows loaded")
+    log.info(f"[load] fact_sell: {len(df)} rows loaded")
