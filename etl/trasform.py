@@ -86,6 +86,45 @@ CATEGORY_TRANSLATION = {
     "fashion_roupa_infanto_juvenil": "fashion_childrens_clothes",
     "seguros_e_servicos": "security_and_services",
 }
+# Nel tuo transform.py, aggiungi questo dizionario vicino agli altri mapping
+BRAZIL_STATE_TO_REGION = {
+    # NORD (Norte)
+    'AC': 'norte',  # Acre
+    'AM': 'norte',  # Amazonas
+    'AP': 'norte',  # Amapá
+    'PA': 'norte',  # Pará
+    'RO': 'norte',  # Rondônia
+    'RR': 'norte',  # Roraima
+    'TO': 'norte',  # Tocantins
+
+    # NORDEST (Nordeste)
+    'AL': 'nordeste',  # Alagoas
+    'BA': 'nordeste',  # Bahia
+    'CE': 'nordeste',  # Ceará
+    'MA': 'nordeste',  # Maranhão
+    'PB': 'nordeste',  # Paraíba
+    'PE': 'nordeste',  # Pernambuco
+    'PI': 'nordeste',  # Piauí
+    'RN': 'nordeste',  # Rio Grande do Norte
+    'SE': 'nordeste',  # Sergipe
+
+    # CENTRO-OVEST (Centro-Oeste)
+    'DF': 'centro_oeste',  # Distretto Federale (Brasilia)
+    'GO': 'centro_oeste',  # Goiás
+    'MS': 'centro_oeste',  # Mato Grosso do Sul
+    'MT': 'centro_oeste',  # Mato Grosso
+
+    # SUDEST (Sudeste)
+    'ES': 'sudeste',  # Espírito Santo
+    'MG': 'sudeste',  # Minas Gerais
+    'RJ': 'sudeste',  # Rio de Janeiro
+    'SP': 'sudeste',  # São Paulo  ← qui troverai il 40%+ dei clienti
+
+    # SUD (Sul)
+    'PR': 'sul',  # Paraná
+    'RS': 'sul',  # Rio Grande do Sul
+    'SC': 'sul',  # Santa Catarina
+}
 # Regex
 STATE_REGEX = (r'^[A-Z]{2}$')
 
@@ -178,18 +217,48 @@ def transform_dim_sellers(df: pd.DataFrame) -> pd.DataFrame:
     return df[['natural_key', 'seller_city', 'seller_state']]
 
 def transform_dim_customers(df: pd.DataFrame) -> pd.DataFrame:
+    # copia del data frame per non lavorare sull'orginale
+    # questo perché python usa il riferimento diretto e non vogliamo modificare
+    # i dati della sorgente
     df = df.copy()
+
+    # Teniaamo traccia della dimensione del data frame
+    # Questo ci serve per migliorare il quality report con i log
     before_dedup = total_input = len(df)
 
+    # Applichiamo le prime normalizzazioni
+    # 1) tutte le città devono essere stringhe, con gli spazi esterni rimossi e minuscole
+    # 2) Usiamo unicode
+    # unidecode rimuove gli accenti portoghesi (ã, â, é, ç, ecc.)
+    # trasformando tutto in caratteri ASCII standard.
+    # Serve per evitare che "São Paulo" e "Sao Paulo" vengano trattate come città diverse.
     df['customer_city'] = df['customer_city'].str.strip().str.lower().apply(unidecode)
+
+    # 3) Per gli stati applichiamo una normalizzazione quasi simile
+    # 3.1) Gli stati sono tutti in upper
     df['customer_state'] = df['customer_state'].str.strip().str.upper()
+    # 3.2) Controllo per gli stati invalidi
+    # Qui applichiamo un'operazione di not
+    # In sostanza tutti gli stati che non fanno il match con la regex
+    # Vengono indicati con la variabile invalid_mask
     invalid_mask = ~df['customer_state'].str.match(STATE_REGEX)
 
+    # sostituzione di tutti gli stati non validi con il simbolo XX
     if invalid_mask.any():
         log.warning(f"[dim_customer] {invalid_mask.sum()} invalid states → 'XX'")
         df.loc[invalid_mask, 'customer_state'] = 'XX'
 
-    df = df.drop_duplicates(subset=['customer_id'], keep='first')
+    # Deriva la regione dallo stato (già normalizzato in upper)
+    df['customer_region'] = df['customer_state'].map(BRAZIL_STATE_TO_REGION)
+
+    # Gestisci stati invalidi (quelli che abbiamo già messo a 'XX')
+    # non avranno un match nel dizionario → NaN → 'unknown'
+    df['customer_region'] = df['customer_region'].fillna('unknown')
+
+    # Deduplicazione per customer_unique_id (chiave del vero utente).
+    # customer_id viene ignorato perché è transazionale e cambia ad ogni ordine.
+    # Manteniamo la prima occorrenza per ogni utente reale.
+    df = df.drop_duplicates(subset=['customer_unique_id'], keep='first')
     after_dedup = len(df)
 
     log.info(f"---------- quality report dim_customer ----------")
@@ -200,8 +269,8 @@ def transform_dim_customers(df: pd.DataFrame) -> pd.DataFrame:
     log.info(f"[dim_customer] States           : {df['customer_state'].value_counts().to_dict()}")
     log.info(f"[dim_customer] Cities           : {df['customer_city'].value_counts().to_dict()}")
 
-    df = df.rename(columns={'customer_id': 'natural_key'})
-    return df[['natural_key', 'customer_unique_id', 'customer_city', 'customer_state']]
+    df = df.rename(columns={'customer_unique_id': 'natural_key'})
+    return df[['natural_key', 'customer_city', 'customer_state', 'customer_region']]
 
 def transform_dim_date(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """

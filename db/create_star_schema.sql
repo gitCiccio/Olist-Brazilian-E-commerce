@@ -34,6 +34,7 @@ CREATE TABLE dim_customer (
     surrogate_key       UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     natural_key         VARCHAR(255) NOT NULL UNIQUE,
     customer_unique_id  VARCHAR(255) NOT NULL,
+    customer_region     VARCHAR(50)  NOT NULL,
     customer_city       VARCHAR(255) NOT NULL,
     customer_state      CHAR(2)      NOT NULL
 );
