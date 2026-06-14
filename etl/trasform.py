@@ -1,11 +1,9 @@
-from typing import Any
-
+import unidecode
 import numpy as np
 import pandas as pd
-from unidecode import unidecode
 from logger.logger import AppLogger
 
-log = AppLogger(name="transform.extract", log_file="transform.log")
+log = AppLogger(name="reconcile.extract", log_file="reconcile.log")
 
 
 # Fase one: conversion & normalization
@@ -86,7 +84,7 @@ CATEGORY_TRANSLATION = {
     "fashion_roupa_infanto_juvenil": "fashion_childrens_clothes",
     "seguros_e_servicos": "security_and_services",
 }
-# Nel tuo transform.py, aggiungi questo dizionario vicino agli altri mapping
+# Nel tuo reconcile.py, aggiungi questo dizionario vicino agli altri mapping
 BRAZIL_STATE_TO_REGION = {
     # NORD (Norte)
     'AC': 'norte',  # Acre
@@ -127,7 +125,6 @@ BRAZIL_STATE_TO_REGION = {
 }
 # Regex
 STATE_REGEX = (r'^[A-Z]{2}$')
-
 
 def transform_dim_payment(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     payment_data_frame_copy = df.copy()
@@ -202,6 +199,9 @@ def transform_dim_sellers(df: pd.DataFrame) -> pd.DataFrame:
         log.warning(f"[dim_seller] {invalid_mask.sum()} invalid states → 'XX'")
         df.loc[invalid_mask, 'seller_state'] = 'XX'
 
+    df['seller_region'] = df['seller_state'].map(BRAZIL_STATE_TO_REGION)
+    df['seller_region'] = df['seller_region'].fillna('unknown')
+
     df = df.drop_duplicates(subset=['seller_id'], keep='first')
     after_dedup = len(df)
 
@@ -214,7 +214,7 @@ def transform_dim_sellers(df: pd.DataFrame) -> pd.DataFrame:
     log.info(f"[dim_seller] Cities           : {df['seller_city'].value_counts().to_dict()}")
 
     df = df.rename(columns={'seller_id': 'natural_key'})
-    return df[['natural_key', 'seller_city', 'seller_state']]
+    return df[['natural_key', 'seller_city', 'seller_state', 'seller_region']]
 
 def transform_dim_customers(df: pd.DataFrame) -> pd.DataFrame:
     # copia del data frame per non lavorare sull'orginale
@@ -263,7 +263,7 @@ def transform_dim_customers(df: pd.DataFrame) -> pd.DataFrame:
 
     log.info(f"---------- quality report dim_customer ----------")
     log.info(f"[dim_customer] Input rows       : {total_input}")
-    log.info(f"[dim_customer] Unique dim_customer : {df['customer_unique_id'].nunique()}")
+    log.info(f"[dim_customer] Unique customers    : {after_dedup}")
     log.info(f"[dim_customer] Deduplicated     : {before_dedup} → {after_dedup} rows "
              f"({before_dedup - after_dedup} duplicates removed)")
     log.info(f"[dim_customer] States           : {df['customer_state'].value_counts().to_dict()}")
@@ -418,33 +418,6 @@ def transform_review_info(df: pd.DataFrame) -> pd.DataFrame:
     return lookup
 
 
-"""
-olist_order_items_dataset.csv     → order_id, order_item_id, product_id, seller_id, price, freight_value
-olist_order_payments_dataset.csv  → order_id → payment_value (somma per ordine) check
-olist_orders_dataset.csv          → order_id → customer_id, delivery_days check 
-olist_order_reviews_dataset.csv   → order_id → review_score check
-Il campo di matching tra tutte le sorgenti è order_id.
-"""
-
-"""
-Passo 1 — Base: olist_order_items_dataset.csv
-Questa è la sorgente principale perché definisce la granularità della fact: ogni riga è un order_item (un prodotto in un ordine). La natural_key sarà composita:
-natural_key = order_id + "_" + str(order_item_id)
-"abc123_1", "abc123_2"  ← due prodotti dello stesso ordine
-"""
-
-"""
-Passo 2 — Matching payment_value da payments
-Un ordine può avere più pagamenti — vuoi la somma totale per ordine:
-payment_agg = df_payments.groupby('order_id')['payment_value'].sum().reset_index()
-abc123 → 170.00  (150 carta + 20 voucher)
-"""
-
-"""
-Passo 3 — Matching customer_id e delivery_days da orders
-Hai già questo DataFrame come secondo elemento del return di transform_dim_date:
-df_orders_lookup = df[['natural_key', 'customer_id']] dal return di transform_dim_date
-"""
 def transform_fact_table(
     df_items: pd.DataFrame,
     order_fact_lookup: pd.DataFrame,
