@@ -11,8 +11,8 @@ from sqlalchemy.engine import Connection
 
 from logger.logger import AppLogger
 from exception.exceptions import ExtractDataError
-from etl.extract.batch.load_batch_to_staging import load_to_staging
-from etl.extract.checkpoint_service import update_checkpoint_progress
+from etl.scripts.extract.batch.load_batch_to_staging import load_to_staging
+from etl.scripts.extract.checkpoint_service import update_checkpoint_progress
 
 log = AppLogger(name="batch_processor.extract", log_file="batch_processor.log")
 

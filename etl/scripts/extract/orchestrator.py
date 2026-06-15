@@ -1,17 +1,16 @@
 from sqlalchemy.engine import Connection
 
 from logger.logger import AppLogger
-from exception.exceptions import ExtractDataError
-from etl.extract.read_csv_metadata import read_csv_metadata
-from etl.extract.checkpoint_service import (
+from etl.scripts.extract.read_csv_metadata import read_csv_metadata
+from etl.scripts.extract.checkpoint_service import (
     get_or_create_checkpoint,
     mark_checkpoint_running,
     mark_checkpoint_completed,
     mark_checkpoint_failed,
     reset_checkpoint,
 )
-from etl.extract.iter_csv_batches import iter_csv_batches
-from etl.extract.batch.process_batch import process_batch
+from etl.scripts.extract.iter_csv_batches import iter_csv_batches
+from etl.scripts.extract.batch.process_batch import process_batch
 
 log = AppLogger(name="orchestrator.extract", log_file="orchestrator.log")
 
