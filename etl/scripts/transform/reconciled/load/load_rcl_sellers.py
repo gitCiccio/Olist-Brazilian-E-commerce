@@ -20,7 +20,7 @@ def extract_sellers_from_staging(engine) -> pd.DataFrame:
             seller_zip_code_prefix,
             seller_city,
             seller_state
-        FROM sellers
+        FROM public.sellers
     """
 
     try:
@@ -44,8 +44,8 @@ def load_rcl_sellers_table(conn, df_rcl: pd.DataFrame) -> None:
         raise LoadDataError("rcl_sellers dataframe is empty or None")
 
     try:
-        conn.execute(text("TRUNCATE TABLE rcl_sellers"))
-        df_rcl.to_sql("rcl_sellers", con=conn, if_exists="append", index=False, method="multi")
+        conn.execute(text("TRUNCATE TABLE reconciled.rcl_sellers"))
+        df_rcl.to_sql("rcl_sellers", con=conn, schema="reconciled", if_exists="append", index=False, method="multi")
         log.info(f"[load_rcl_sellers] Loaded rows: {len(df_rcl)}")
     except Exception as e:
         log.error(f"[load_rcl_sellers] Error during load: {e}")

@@ -23,7 +23,7 @@ def extract_order_items_from_staging(engine) -> pd.DataFrame:
             shipping_limit_date,
             price,
             freight_value
-        FROM order_items
+        FROM public.order_items
     """
 
     try:
@@ -47,8 +47,8 @@ def load_rcl_order_items_table(conn, df_rcl: pd.DataFrame) -> None:
         raise LoadDataError("rcl_order_items dataframe is empty or None")
 
     try:
-        conn.execute(text("TRUNCATE TABLE rcl_order_items"))
-        df_rcl.to_sql("rcl_order_items", con=conn, if_exists="append", index=False, method="multi")
+        conn.execute(text("TRUNCATE TABLE reconciled.rcl_order_items"))
+        df_rcl.to_sql("rcl_order_items", con=conn, schema="reconciled", if_exists="append", index=False, method="multi")
         log.info(f"[load_rcl_order_items] Loaded rows: {len(df_rcl)}")
     except Exception as e:
         log.error(f"[load_rcl_order_items] Error during load: {e}")

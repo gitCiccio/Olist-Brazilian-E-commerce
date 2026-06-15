@@ -41,7 +41,8 @@ log = AppLogger(name="reconciled.orchestrator", log_file="reconciled_phase.log")
 
 
 def _run_single_reconciled_job(
-    engine,
+    engine_read,
+    engine_write,
     job_name: str,
     extract_fn: Callable,
     build_fn: Callable,
@@ -49,11 +50,11 @@ def _run_single_reconciled_job(
 ) -> int:
     log.info(f"[reconciled.orchestrator] Starting job: {job_name}")
 
-    if engine is None:
+    if engine_read is None or engine_write is None:
         log.error(f"[reconciled.orchestrator] Engine is None for job: {job_name}")
         raise RuntimeError(f"Database engine is None for job: {job_name}")
 
-    df_source = extract_fn(engine)
+    df_source = extract_fn(engine_read)
     source_rows = len(df_source)
     log.info(f"[reconciled.orchestrator] {job_name} extracted rows: {source_rows}")
 
@@ -61,7 +62,7 @@ def _run_single_reconciled_job(
     reconciled_rows = len(df_rcl)
     log.info(f"[reconciled.orchestrator] {job_name} reconciled rows: {reconciled_rows}")
 
-    with engine.begin() as conn:
+    with engine_write.begin() as conn:
         load_fn(conn, df_rcl)
 
     log.info(f"[reconciled.orchestrator] Completed job: {job_name}")
@@ -69,20 +70,23 @@ def _run_single_reconciled_job(
 
 
 def run_reconciled_phase(
-    engine,
+    engine_read,
+    engine_write,
     selected_jobs: Optional[List[str]] = None,
     fail_fast: bool = True,
 ) -> Dict[str, str]:
     log.info(
         f"[reconciled.orchestrator] Reconciled phase started "
-        f"(selected_jobs={selected_jobs}, fail_fast={fail_fast})"
+        f"(engine_read={engine_read}, engine_write={engine_write}, "
+        f"selected_jobs={selected_jobs}, fail_fast={fail_fast})"
     )
 
 
-    if engine is None:
-        log.error("[reconciled.orchestrator] get_engine returned None")
-        raise RuntimeError("Database engine is None")
+    if engine_read is None or engine_write is None:
+        log.error("[reconciled.orchestrator] Database engines are None")
+        raise RuntimeError("Database engines are None")
 
+    # ... jobs dictionary remains the same ...
     jobs = {
         "customers": (
             extract_customers_from_staging,
@@ -158,7 +162,8 @@ def run_reconciled_phase(
 
         try:
             loaded_rows = _run_single_reconciled_job(
-                engine=engine,
+                engine_read=engine_read,
+                engine_write=engine_write,
                 job_name=job_name,
                 extract_fn=extract_fn,
                 build_fn=build_fn,

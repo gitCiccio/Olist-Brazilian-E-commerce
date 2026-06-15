@@ -21,7 +21,7 @@ def extract_order_payments_from_staging(engine) -> pd.DataFrame:
             payment_type,
             payment_installments,
             payment_value
-        FROM order_payments
+        FROM public.order_payments
     """
 
     try:
@@ -45,8 +45,8 @@ def load_rcl_order_payments_table(conn, df_rcl: pd.DataFrame) -> None:
         raise LoadDataError("rcl_order_payments dataframe is empty or None")
 
     try:
-        conn.execute(text("TRUNCATE TABLE rcl_order_payments"))
-        df_rcl.to_sql("rcl_order_payments", con=conn, if_exists="append", index=False, method="multi")
+        conn.execute(text("TRUNCATE TABLE reconciled.rcl_order_payments"))
+        df_rcl.to_sql("rcl_order_payments", con=conn, schema="reconciled", if_exists="append", index=False, method="multi")
         log.info(f"[load_rcl_order_payments] Loaded rows: {len(df_rcl)}")
     except Exception as e:
         log.error(f"[load_rcl_order_payments] Error during load: {e}")

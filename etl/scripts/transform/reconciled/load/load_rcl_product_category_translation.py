@@ -18,7 +18,7 @@ def extract_product_category_translation_from_staging(engine) -> pd.DataFrame:
         SELECT
             product_category_name,
             product_category_name_english
-        FROM product_category_translation
+        FROM public.product_category_name_translation
     """
 
     try:
@@ -42,10 +42,11 @@ def load_rcl_product_category_translation_table(conn, df_rcl: pd.DataFrame) -> N
         raise LoadDataError("rcl_product_category_translation dataframe is empty or None")
 
     try:
-        conn.execute(text("TRUNCATE TABLE rcl_product_category_translation"))
+        conn.execute(text("TRUNCATE TABLE reconciled.rcl_product_category_translation"))
         df_rcl.to_sql(
             "rcl_product_category_translation",
             con=conn,
+            schema="reconciled",
             if_exists="append",
             index=False,
             method="multi"

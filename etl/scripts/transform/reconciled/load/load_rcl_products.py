@@ -18,14 +18,14 @@ def extract_products_from_staging(engine) -> pd.DataFrame:
         SELECT
             product_id,
             product_category_name,
-            product_name_lenght,
-            product_description_lenght,
+            product_name_length,
+            product_description_length,
             product_photos_qty,
             product_weight_g,
             product_length_cm,
             product_height_cm,
             product_width_cm
-        FROM products
+        FROM public.products
     """
 
     try:
@@ -49,8 +49,8 @@ def load_rcl_products_table(conn, df_rcl: pd.DataFrame) -> None:
         raise LoadDataError("rcl_products dataframe is empty or None")
 
     try:
-        conn.execute(text("TRUNCATE TABLE rcl_products"))
-        df_rcl.to_sql("rcl_products", con=conn, if_exists="append", index=False, method="multi")
+        conn.execute(text("TRUNCATE TABLE reconciled.rcl_products"))
+        df_rcl.to_sql("rcl_products", con=conn, schema="reconciled", if_exists="append", index=False, method="multi")
         log.info(f"[load_rcl_products] Loaded rows: {len(df_rcl)}")
     except Exception as e:
         log.error(f"[load_rcl_products] Error during load: {e}")

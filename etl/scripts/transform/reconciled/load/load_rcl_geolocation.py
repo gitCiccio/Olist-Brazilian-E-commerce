@@ -45,8 +45,8 @@ def load_rcl_geolocation_table(conn, df_rcl: pd.DataFrame) -> None:
         raise LoadDataError("rcl_geolocation dataframe is empty or None")
 
     try:
-        conn.execute(text("TRUNCATE TABLE rcl_geolocation"))
-        df_rcl.to_sql("rcl_geolocation", con=conn, if_exists="append", index=False, method="multi")
+        conn.execute(text("TRUNCATE TABLE reconciled.rcl_geolocation"))
+        df_rcl.to_sql("rcl_geolocation", con=conn, schema="reconciled", if_exists="append", index=False, method="multi")
         log.info(f"[load_rcl_geolocation] Loaded rows: {len(df_rcl)}")
     except Exception as e:
         log.error(f"[load_rcl_geolocation] Error during load: {e}")

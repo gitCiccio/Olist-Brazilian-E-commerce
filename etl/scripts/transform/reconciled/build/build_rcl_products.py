@@ -22,8 +22,8 @@ def build_rcl_products(dataframe: pd.DataFrame) -> pd.DataFrame:
     required_cols = [
         "product_id",
         "product_category_name",
-        "product_name_lenght",
-        "product_description_lenght",
+        "product_name_length",
+        "product_description_length",
         "product_photos_qty",
         "product_weight_g",
         "product_length_cm",
@@ -47,8 +47,8 @@ def build_rcl_products(dataframe: pd.DataFrame) -> pd.DataFrame:
     )
 
     numeric_cols = [
-        "product_name_lenght",
-        "product_description_lenght",
+        "product_name_length",
+        "product_description_length",
         "product_photos_qty",
         "product_weight_g",
         "product_length_cm",

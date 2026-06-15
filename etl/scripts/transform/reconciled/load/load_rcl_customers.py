@@ -21,7 +21,7 @@ def extract_customers_from_staging(engine) -> pd.DataFrame:
             customer_zip_code_prefix,
             customer_city,
             customer_state
-        FROM customers
+        FROM public.customers
     """
 
     try:
@@ -65,12 +65,13 @@ def load_rcl_customers_table(conn, df_rcl: pd.DataFrame) -> None:
 
     try:
         log.info("[load_rcl_customers] Truncating rcl_customers")
-        conn.execute(text("TRUNCATE TABLE rcl_customers"))
+        conn.execute(text("TRUNCATE TABLE reconciled.rcl_customers"))
 
         log.info(f"[load_rcl_customers] Inserting rows into rcl_customers: {len(df_rcl)}")
         df_rcl.to_sql(
             "rcl_customers",
             con=conn,
+            schema="reconciled",
             if_exists="append",
             index=False,
             method="multi"
