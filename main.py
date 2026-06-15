@@ -1,56 +1,66 @@
 from sqlalchemy import create_engine
-
-import sources
-from etl.extract.orchestrator import run_extraction
-import pandas as pd
-from etl.trasform import transform_dim_sellers, transform_dim_customers, transform_dim_product, transform_dim_payment, \
-    transform_dim_date, transform_review_info, transform_fact_table
+from dotenv import load_dotenv
+import os
+from etl.scripts.extract.orchestrator import run_extraction
+from etl.scripts.transform.orchstrator import run_reconciled_phase
 from logger.logger import AppLogger
 from sources import SOURCES
-from etl.load import (
-    load_dim_sellers,
-    load_dim_customers,
-    load_dim_product,
-    load_dim_payment,
-    load_dim_date,
-    load_fact_table
-)
 
 log = AppLogger(name="main", log_file="main.log")
 
-
-
 if __name__ == "__main__":
+    load_dotenv()
     log.info("=== ETL START ===")
 
-    engine = create_engine(
-        "postgresql+psycopg2://postgres:Postgres123:_@localhost:5433/olist_star_schema"
+    # ── Database Configuration ────────────────────────────────────
+    user = os.getenv('POSTGRES_USER', 'postgres')
+    password = os.getenv('POSTGRES_PASSWORD')
+    host = os.getenv('POSTGRES_HOST', 'localhost')
+    port = os.getenv('POSTGRES_PORT', '5433')
+
+    staging_db = os.getenv('POSTGRES_STAGING_DB', 'olist_staging')
+    reconciled_db = os.getenv('POSTGRES_RECONCILED_DB', 'olist_reconciled')
+    dw_db = os.getenv('POSTGRES_DW_DB', 'olist_dw')
+
+    # Create engines for each layer
+    engine_staging = create_engine(
+        f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{staging_db}"
+    )
+    engine_reconciled = create_engine(
+        f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{reconciled_db}"
+    )
+    engine_dw = create_engine(
+        f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dw_db}"
     )
 
-    # ── EXTRACT ──────────────────────────────────────────
-    log.info("--- PHASE: EXTRACT ---")
-    with engine.connect() as conn:
-        for source_name, source_config in SOURCES.items():
-            log.info(f"[main] Starting extraction for {source_name}")
-            run_extraction(
-                conn=conn,
-                csv_path=source_config["file"],
-                selected_columns=source_config["columns"],
-                batch_size=1000,
-                target_table=source_config["staging_table"],
-                truncate=False
-            )
-            log.info(f"[main] Extraction completed for {source_name}")
+    log.info(f"Staging DB: {staging_db}")
+    log.info(f"Reconciled DB: {reconciled_db}")
+    log.info(f"DW DB: {dw_db}")
 
+    try:
+        # ── EXTRACT ──────────────────────────────────────────
+        log.info("--- PHASE: EXTRACT ---")
+        log.info("[main] Extract phase not active (use scripts/recreate_and_load_db.py)")
 
+        # ── TRANSFORM ────────────────────────────────────────
+        log.info("--- PHASE: TRANSFORM / RECONCILED ---")
 
+        reconciled_results = run_reconciled_phase(
+            engine_read=engine_staging,
+            engine_write=engine_reconciled,
+            selected_jobs=None,
+            fail_fast=True
+        )
 
-    # ── TRANSFORM ────────────────────────────────────────
-    log.info("--- PHASE: TRANSFORM ---")
+        for job_name, status in reconciled_results.items():
+            log.info(f"[main] Reconciled job {job_name}: {status}")
 
+        # ── LOAD ─────────────────────────────────────────────
+        log.info("--- PHASE: LOAD ---")
+        log.info("[main] DW load phase not implemented yet")
 
-    # ── LOAD ─────────────────────────────────────────────
-    log.info("--- PHASE: LOAD ---")
+        log.info("=== ETL COMPLETE ===")
 
-
-    log.info("=== ETL COMPLETE ===")
+    except Exception as e:
+        log.error(f"[main] ETL FAILED: {e}")
+        raise

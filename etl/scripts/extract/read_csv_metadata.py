@@ -15,7 +15,7 @@ Quello che fa in sostanza si chiama -> ispezione tecnica
 import pandas as pd
 from logger.logger import AppLogger
 from exception.exceptions import ExtractDataError
-from etl.extract.models import CsvMetadata
+from etl.scripts.extract.models import CsvMetadata
 
 log = AppLogger(name="read_csv_metadata.extract", log_file="read_csv_metadata.log")
 

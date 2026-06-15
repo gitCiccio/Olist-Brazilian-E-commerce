@@ -3,11 +3,10 @@ Lo script checkpoint_service gestisce lo stato tecnico del job di estrazione
 Verifica lo stato del file: Nuovo, In esecuzione, Completo, da riprendere e l'ultima riga estratta con successo
 """
 from sqlalchemy import text
-from sqlalchemy.engine import Connection
 
 from logger.logger import AppLogger
 from exception.exceptions import ExtractDataError
-from etl.extract.models import CheckpointInfo
+from etl.scripts.extract.models import CheckpointInfo
 
 log = AppLogger(name="checkpoint_service.extract", log_file="checkpoint_service.log")
 
