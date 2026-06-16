@@ -3,7 +3,6 @@ import psycopg2
 from dotenv import load_dotenv
 from psycopg2.extras import execute_values
 from exception.exceptions import DatabaseConnectionError
-from logger import logger as log
 from logger.logger import AppLogger
 
 log = AppLogger(name="db.extract", log_file="db.log")
@@ -16,7 +15,6 @@ class db_connection:
     def __new__(cls):
         if cls._instance is None:
             log.info(f"Creating new instance of {cls.__name__}")
-            cls._instance = object.__new__(cls)
             cls._instance = super().__new__(cls)
         return cls._instance
 
@@ -126,3 +124,4 @@ class db_connection:
             log.warning("Transaction rolled back.")
         except psycopg2.Error as e:
             log.error(f"Rollback failed: {e}")
+            raise
