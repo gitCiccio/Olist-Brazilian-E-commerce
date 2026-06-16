@@ -4,7 +4,6 @@ import os
 from logger.logger import AppLogger
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
-from typing import Callable, Dict, List, Optional
 
 # job runner is implemented locally in this module
 
