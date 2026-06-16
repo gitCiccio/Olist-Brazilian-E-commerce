@@ -44,12 +44,6 @@ def build_dim_customer(df_rcl: pd.DataFrame) -> pd.DataFrame:
     log.info(f"[build_dim_customer] customer_region='unknown' rows: {unknown_region_count}")
 
     df = df.dropna(subset=["customer_unique_id"])
-    after_dropna_rows = len(df)
-    log.info(
-        f"[build_dim_customer] Rows after dropping null customer_unique_id: "
-        f"{after_dropna_rows} (removed={input_rows - after_dropna_rows})"
-    )
-
     df["customer_unique_id"] = df["customer_unique_id"].astype(str).str.strip()
 
     empty_nk_mask = df["customer_unique_id"] == ""
@@ -58,11 +52,10 @@ def build_dim_customer(df_rcl: pd.DataFrame) -> pd.DataFrame:
         log.warning(f"[build_dim_customer] Empty natural keys found after trim: {empty_nk_count}")
 
     df = df[~empty_nk_mask]
-    after_empty_filter_rows = len(df)
-    log.info(
-        f"[build_dim_customer] Rows after dropping empty customer_unique_id: "
-        f"{after_empty_filter_rows} (removed={empty_nk_count})"
-    )
+
+    df["customer_region"] = df["customer_region"].fillna("unknown").astype(str).str.strip()
+    df["customer_city"] = df["customer_city"].fillna("unknown").astype(str).str.strip()
+    df["customer_state"] = df["customer_state"].fillna("XX").astype(str).str.strip().str.upper()
 
     before_dedup_rows = len(df)
     df = df.drop_duplicates(subset=["customer_unique_id"], keep="first")
@@ -73,14 +66,14 @@ def build_dim_customer(df_rcl: pd.DataFrame) -> pd.DataFrame:
     else:
         log.info("[build_dim_customer] No duplicates found on customer_unique_id")
 
-    df = df.rename(columns={"customer_unique_id": "natural_key"})
-
-    result = df[[
-        "natural_key",
-        "customer_region",
-        "customer_city",
-        "customer_state"
-    ]].copy()
+    result = df.rename(columns={"customer_unique_id": "natural_key"})[
+        [
+            "natural_key",
+            "customer_region",
+            "customer_city",
+            "customer_state"
+        ]
+    ].copy()
 
     log.info(f"[build_dim_customer] Output rows for dim_customer: {len(result)}")
     log.info("[build_dim_customer] Build completed")

@@ -1,10 +1,10 @@
 import pandas as pd
 from sqlalchemy import text
 
+from etl.scripts.data_quality.dq_dim_customer import run_dq_dim_customer
 from logger.logger import AppLogger
 from exception.exceptions import ExtractDataError, LoadDataError
-from etl.scripts.dw_load.build.build_dim_customer import build_dim_customer
-from db.connection import get_engine
+from etl.scripts.load.build.build_dim_customer import build_dim_customer
 
 log = AppLogger(name="dw.load_dim_customer", log_file="dw_load.log")
 
@@ -18,13 +18,10 @@ def extract_rcl_customers(engine) -> pd.DataFrame:
 
     query = """
         SELECT
-            customer_id,
             customer_unique_id,
-            customer_zip_code_prefix,
             customer_city,
             customer_state,
-            customer_region,
-            state_valid_flag
+            customer_region
         FROM rcl_customers
     """
 
@@ -82,3 +79,20 @@ def load_dim_customer_table(conn, dim_customer: pd.DataFrame) -> None:
     except Exception as e:
         log.error(f"[load_dim_customer] Error during load into dim_customer: {e}")
         raise LoadDataError(f"Error loading dim_customer: {e}") from e
+
+
+def run_load_dim_customer(engine, conn) -> None:
+    log.info("[load_dim_customer] Pipeline started")
+
+    df_rcl = extract_rcl_customers(engine)
+    dim_customer = build_dim_customer(df_rcl)
+    load_dim_customer_table(conn, dim_customer)
+
+    dq_path = run_dq_dim_customer(
+        source_df=df_rcl,
+        transformed_df=dim_customer,
+        engine_dw=conn
+    )
+    log.info(f"[load_dim_customer] DQ report saved: {dq_path}")
+
+    log.info("[load_dim_customer] Pipeline completed")
