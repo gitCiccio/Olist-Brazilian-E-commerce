@@ -19,10 +19,16 @@ def build_rcl_product_category_translation(dataframe: pd.DataFrame) -> pd.DataFr
 
     df = dataframe.copy()
 
+    df = df.rename(columns={
+        # alias futuri, se dovessero servire
+        # "product_category_name_en": "product_category_name_english",
+    })
+
     required_cols = [
         "product_category_name",
         "product_category_name_english"
     ]
+
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
         log.error(f"[build_rcl_product_category_translation] Missing required columns: {missing}")

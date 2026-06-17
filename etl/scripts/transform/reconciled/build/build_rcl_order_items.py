@@ -19,6 +19,11 @@ def build_rcl_order_items(dataframe: pd.DataFrame) -> pd.DataFrame:
 
     df = dataframe.copy()
 
+    df = df.rename(columns={
+        # alias futuri, se dovessero servire
+        # "shipping_date_limit": "shipping_limit_date",
+    })
+
     required_cols = [
         "order_id",
         "order_item_id",
@@ -28,6 +33,7 @@ def build_rcl_order_items(dataframe: pd.DataFrame) -> pd.DataFrame:
         "price",
         "freight_value"
     ]
+
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
         log.error(f"[build_rcl_order_items] Missing required columns: {missing}")

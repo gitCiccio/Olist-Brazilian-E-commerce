@@ -29,8 +29,14 @@ def load_to_staging(conn: Connection, chunk: pd.DataFrame, target_table: str) ->
         raise ExtractDataError("Target table is invalid")
 
     try:
+        if "." in target_table:
+            schema_name, table_name = target_table.split(".", 1)
+        else:
+            schema_name, table_name = None, target_table
+
         chunk.to_sql(
-            name=target_table,
+            name=table_name,
+            schema=schema_name,
             con=conn,
             if_exists="append",
             index=False

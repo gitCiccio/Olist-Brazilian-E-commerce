@@ -20,7 +20,7 @@ def extract_sellers_from_staging(engine) -> pd.DataFrame:
             seller_zip_code_prefix,
             seller_city,
             seller_state
-        FROM public.sellers
+        FROM staging.stg_sellers
     """
 
     try:

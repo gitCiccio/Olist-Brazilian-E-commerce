@@ -19,6 +19,11 @@ def build_rcl_orders(dataframe: pd.DataFrame) -> pd.DataFrame:
 
     df = dataframe.copy()
 
+    df = df.rename(columns={
+        # alias futuri, se dovessero servire
+        # "order_purchase_date": "order_purchase_timestamp",
+    })
+
     required_cols = [
         "order_id",
         "customer_id",
@@ -29,6 +34,7 @@ def build_rcl_orders(dataframe: pd.DataFrame) -> pd.DataFrame:
         "order_delivered_customer_date",
         "order_estimated_delivery_date"
     ]
+
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
         log.error(f"[build_rcl_orders] Missing required columns: {missing}")
@@ -54,6 +60,7 @@ def build_rcl_orders(dataframe: pd.DataFrame) -> pd.DataFrame:
         "order_delivered_customer_date",
         "order_estimated_delivery_date"
     ]
+
     for col in ts_cols:
         df[col] = pd.to_datetime(df[col], errors="coerce")
 

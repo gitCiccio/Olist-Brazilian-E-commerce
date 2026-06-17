@@ -18,22 +18,22 @@ def extract_date_sources(engine) -> pd.DataFrame:
 
     query = """
         SELECT CAST(order_purchase_timestamp AS DATE) AS full_date
-        FROM rcl_orders
+        FROM reconciled.rcl_orders
 
         UNION
 
         SELECT CAST(order_delivered_customer_date AS DATE) AS full_date
-        FROM rcl_orders
+        FROM reconciled.rcl_orders
 
         UNION
 
         SELECT CAST(order_estimated_delivery_date AS DATE) AS full_date
-        FROM rcl_orders
+        FROM  reconciled.rcl_orders
 
         UNION
 
         SELECT CAST(shipping_limit_date AS DATE) AS full_date
-        FROM rcl_order_items
+        FROM reconciled.rcl_order_items
     """
 
     try:
@@ -79,9 +79,6 @@ def load_dim_date_table(conn, dim_date: pd.DataFrame) -> None:
         raise LoadDataError(f"Missing required columns in dim_date: {missing}")
 
     try:
-        log.info("[load_dim_date] Truncating dim_date")
-        conn.execute(text("TRUNCATE TABLE dim_date"))
-
         log.info(f"[load_dim_date] Inserting rows into dim_date: {len(dim_date)}")
         dim_date.to_sql(
             "dim_date",

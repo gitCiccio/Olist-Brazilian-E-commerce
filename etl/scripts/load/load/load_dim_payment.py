@@ -20,7 +20,7 @@ def extract_rcl_payments(engine) -> pd.DataFrame:
         SELECT
             payment_type,
             payment_installments
-        FROM rcl_order_payments
+        FROM reconciled.rcl_order_payments
     """
 
     try:
@@ -58,9 +58,6 @@ def load_dim_payment_table(conn, dim_payment: pd.DataFrame) -> None:
         raise LoadDataError(f"Missing required columns in dim_payment: {missing}")
 
     try:
-        log.info("[load_dim_payment] Truncating dim_payment")
-        conn.execute(text("TRUNCATE TABLE dim_payment"))
-
         log.info(f"[load_dim_payment] Inserting rows into dim_payment: {len(dim_payment)}")
         dim_payment.to_sql(
             "dim_payment",

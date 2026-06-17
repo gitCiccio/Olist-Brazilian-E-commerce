@@ -18,9 +18,11 @@ def extract_rcl_products(engine) -> pd.DataFrame:
 
     query = """
         SELECT
-            product_id AS natural_key,
-            category_name_en
-        FROM rcl_products
+        p.product_id AS natural_key,
+        t.product_category_name_english AS category_name_en
+    FROM reconciled.rcl_products p
+    LEFT JOIN reconciled.rcl_product_category_translation t
+        ON p.product_category_name = t.product_category_name
     """
 
     try:
@@ -59,8 +61,6 @@ def load_dim_product_table(conn, dim_product: pd.DataFrame) -> None:
         raise LoadDataError(f"Missing required columns in dim_product: {missing}")
 
     try:
-        log.info("[load_dim_product] Truncating dim_product")
-        conn.execute(text("TRUNCATE TABLE dim_product"))
 
         log.info(f"[load_dim_product] Inserting rows into dim_product: {len(dim_product)}")
         dim_product.to_sql(

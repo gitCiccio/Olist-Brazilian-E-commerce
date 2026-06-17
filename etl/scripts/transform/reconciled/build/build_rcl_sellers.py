@@ -21,12 +21,18 @@ def build_rcl_sellers(dataframe: pd.DataFrame) -> pd.DataFrame:
 
     df = dataframe.copy()
 
+    df = df.rename(columns={
+        # alias futuri, se dovessero servire
+        # "seller_zipcode_prefix": "seller_zip_code_prefix",
+    })
+
     required_cols = [
         "seller_id",
         "seller_zip_code_prefix",
         "seller_city",
         "seller_state"
     ]
+
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
         log.error(f"[build_rcl_sellers] Missing required columns: {missing}")
