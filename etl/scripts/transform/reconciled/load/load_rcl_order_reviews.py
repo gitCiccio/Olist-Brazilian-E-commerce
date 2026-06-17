@@ -23,7 +23,7 @@ def extract_order_reviews_from_staging(engine) -> pd.DataFrame:
             review_comment_message,
             review_creation_date,
             review_answer_timestamp
-        FROM public.order_reviews
+        FROM staging.stg_order_reviews
     """
 
     try:

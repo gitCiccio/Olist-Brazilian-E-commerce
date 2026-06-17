@@ -18,7 +18,7 @@ def extract_product_category_translation_from_staging(engine) -> pd.DataFrame:
         SELECT
             product_category_name,
             product_category_name_english
-        FROM public.product_category_name_translation
+        FROM staging.stg_product_category_translation
     """
 
     try:

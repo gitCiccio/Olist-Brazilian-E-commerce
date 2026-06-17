@@ -21,7 +21,7 @@ def extract_geolocation_from_staging(engine) -> pd.DataFrame:
             geolocation_lng,
             geolocation_city,
             geolocation_state
-        FROM geolocation
+        FROM staging.stg_geolocation
     """
 
     try:

@@ -15,16 +15,15 @@ def extract_order_items_from_staging(engine) -> pd.DataFrame:
         raise ExtractDataError("Database engine is None")
 
     query = """
-        SELECT
-            order_id,
-            order_item_id,
-            product_id,
-            seller_id,
-            shipping_limit_date,
-            price,
-            freight_value
-        FROM public.order_items
-    """
+            SELECT order_id,
+                   order_item_id,
+                   product_id,
+                   seller_id,
+                   shipping_limit_date,
+                   price,
+                   freight_value
+            FROM staging.stg_order_items
+            """
 
     try:
         df = pd.read_sql(query, engine)

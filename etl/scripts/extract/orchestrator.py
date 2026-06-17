@@ -1,5 +1,6 @@
 from sqlalchemy.engine import Connection
 
+from exception.exceptions import ExtractDataError
 from logger.logger import AppLogger
 from etl.scripts.extract.read_csv_metadata import read_csv_metadata
 from etl.scripts.extract.checkpoint_service import (
@@ -11,8 +12,49 @@ from etl.scripts.extract.checkpoint_service import (
 )
 from etl.scripts.extract.iter_csv_batches import iter_csv_batches
 from etl.scripts.extract.batch.process_batch import process_batch
+from sources import SOURCES
 
 log = AppLogger(name="orchestrator.extract", log_file="orchestrator.log")
+
+def run_staging_phase(engine_write, selected_jobs=None, fail_fast=True, batch_size=5000):
+    log.info(
+        f"[staging.orchestrator] Staging phase started "
+        f"(selected_jobs={selected_jobs}, fail_fast={fail_fast}, batch_size={batch_size})"
+    )
+
+    jobs = SOURCES
+    if selected_jobs is not None:
+        jobs = {k: v for k, v in SOURCES.items() if k in selected_jobs}
+
+    results = {}
+
+    with engine_write.begin() as conn:
+        for job_name, cfg in jobs.items():
+            try:
+                log.info(f"[staging.orchestrator] Starting job: {job_name}")
+
+                run_extraction(
+                    conn=conn,
+                    csv_path=cfg["file"],
+                    selected_columns=cfg["columns"],
+                    batch_size=batch_size,
+                    target_table=cfg["staging_table"],
+                    truncate=False
+                )
+
+                results[job_name] = "SUCCESS"
+                log.info(f"[staging.orchestrator] Completed job: {job_name}")
+
+            except Exception as e:
+                log.error(f"[staging.orchestrator] Job failed: {job_name} -> {e}")
+                results[job_name] = f"FAILED ({e})"
+
+                if fail_fast:
+                    log.error("[staging.orchestrator] Staging phase interrupted due to fail_fast=True")
+                    raise
+
+    log.info(f"[staging.orchestrator] Staging phase completed with results: {results}")
+    return results
 
 def run_extraction(
     conn: Connection,
@@ -69,7 +111,12 @@ def run_extraction(
                 total_rows=metadata.total_rows
             )
 
-        mark_checkpoint_running(conn, checkpoint.id)
+        if checkpoint.status == "CREATED":
+            mark_checkpoint_running(conn, checkpoint.id)
+        elif checkpoint.status != "RUNNING":
+            raise ExtractDataError(
+                f"Unexpected checkpoint status for {csv_path}: {checkpoint.status}"
+            )
 
         current_last_row = checkpoint.last_row_extracted
 

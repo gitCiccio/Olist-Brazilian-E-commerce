@@ -21,7 +21,7 @@ def extract_customers_from_staging(engine) -> pd.DataFrame:
             customer_zip_code_prefix,
             customer_city,
             customer_state
-        FROM public.customers
+        FROM staging.stg_customers
     """
 
     try:

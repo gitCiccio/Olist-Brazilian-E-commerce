@@ -1,5 +1,4 @@
 import pandas as pd
-from sqlalchemy import text
 from etl.scripts.data_quality.dq_fact_sale_item import run_dq_fact_sale_item
 from etl.scripts.load.build.build_fact_sale_item import build_fact_sale_item
 from logger.logger import AppLogger
@@ -29,10 +28,10 @@ def extract_fact_sale_item_source(engine) -> pd.DataFrame:
             CAST(oi.shipping_limit_date AS DATE) AS shipping_limit_date,
             CAST(o.order_delivered_customer_date AS DATE) AS delivered_date,
             CAST(o.order_estimated_delivery_date AS DATE) AS estimated_delivery_date
-        FROM rcl_order_items oi
-        JOIN rcl_orders o
+        FROM reconciled.rcl_order_items oi
+        JOIN reconciled.rcl_orders o
             ON oi.order_id = o.order_id
-        JOIN rcl_customers c
+        JOIN reconciled.rcl_customers c
             ON o.customer_id = c.customer_id
     """
 
@@ -45,46 +44,58 @@ def extract_fact_sale_item_source(engine) -> pd.DataFrame:
         raise ExtractDataError(f"Error extracting fact_sale_item source: {e}") from e
 
 
-def extract_dim_maps(engine):
+def extract_dim_maps(conn):
     product_map = pd.read_sql(
         """
         SELECT natural_key, surrogate_key
-        FROM dim_product
+        FROM public.dim_product
         """,
-        engine
+        conn
     ).rename(columns={"natural_key": "product_natural_key", "surrogate_key": "product_key"})
 
     customer_map = pd.read_sql(
         """
         SELECT natural_key, surrogate_key
-        FROM dim_customer
+        FROM public.dim_customer
         WHERE is_current = TRUE
         """,
-        engine
+        conn
     ).rename(columns={"natural_key": "customer_natural_key", "surrogate_key": "customer_key"})
 
     seller_map = pd.read_sql(
         """
         SELECT natural_key, surrogate_key
-        FROM dim_seller
+        FROM public.dim_seller
         WHERE is_current = TRUE
         """,
-        engine
+        conn
     ).rename(columns={"natural_key": "seller_natural_key", "surrogate_key": "seller_key"})
 
     date_map = pd.read_sql(
         """
         SELECT surrogate_key, full_date
-        FROM dim_date
+        FROM public.dim_date
         """,
-        engine
+        conn
     )
     date_map["full_date"] = pd.to_datetime(date_map["full_date"], errors="coerce").dt.date
 
-    purchase_map = date_map.rename(columns={"surrogate_key": "purchase_date_key", "full_date": "purchase_date"})
-    shipping_map = date_map.rename(columns={"surrogate_key": "shipping_limit_date_key", "full_date": "shipping_limit_date"})
-    delivered_map = date_map.rename(columns={"surrogate_key": "delivered_date_key", "full_date": "delivered_date"})
-    estimated_map = date_map.rename(columns={"surrogate_key": "estimated_delivery_date_key", "full_date": "estimated_delivery_date"})
+    purchase_map = date_map.rename(columns={
+        "surrogate_key": "purchase_date_key",
+        "full_date": "purchase_date"
+    })
+    shipping_map = date_map.rename(columns={
+        "surrogate_key": "shipping_limit_date_key",
+        "full_date": "shipping_limit_date"
+    })
+    delivered_map = date_map.rename(columns={
+        "surrogate_key": "delivered_date_key",
+        "full_date": "delivered_date"
+    })
+    estimated_map = date_map.rename(columns={
+        "surrogate_key": "estimated_delivery_date_key",
+        "full_date": "estimated_delivery_date"
+    })
 
     return product_map, customer_map, seller_map, purchase_map, shipping_map, delivered_map, estimated_map
 
@@ -108,7 +119,7 @@ def load_fact_sale_item_table(engine, conn, fact_sale_item: pd.DataFrame) -> Non
         shipping_map,
         delivered_map,
         estimated_map
-    ) = extract_dim_maps(engine)
+    ) = extract_dim_maps(conn)
 
     df = fact_sale_item.copy()
 
@@ -154,9 +165,6 @@ def load_fact_sale_item_table(engine, conn, fact_sale_item: pd.DataFrame) -> Non
     ].copy()
 
     try:
-        log.info("[load_fact_sale_item] Truncating fact_sale_item")
-        conn.execute(text("TRUNCATE TABLE fact_sale_item"))
-
         log.info(f"[load_fact_sale_item] Inserting rows: {len(final_df)}")
         final_df.to_sql(
             "fact_sale_item",

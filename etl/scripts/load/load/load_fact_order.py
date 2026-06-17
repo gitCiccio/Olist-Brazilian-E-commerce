@@ -1,6 +1,4 @@
 import pandas as pd
-from sqlalchemy import text
-
 from etl.scripts.data_quality.dq_fact_order import run_dq_fact_order
 from etl.scripts.load.build.build_fact_order import build_fact_order
 from logger.logger import AppLogger
@@ -23,14 +21,14 @@ def extract_fact_order_source(engine) -> pd.DataFrame:
                 payment_type,
                 payment_installments,
                 SUM(payment_value) AS payment_value
-            FROM rcl_order_payments
+            FROM reconciled.rcl_order_payments
             GROUP BY order_id, payment_type, payment_installments
         ),
         review_agg AS (
             SELECT
                 order_id,
                 ROUND(AVG(review_score)::numeric, 1) AS review_score
-            FROM rcl_order_reviews
+            FROM reconciled.rcl_order_reviews
             GROUP BY order_id
         )
         SELECT
@@ -44,8 +42,8 @@ def extract_fact_order_source(engine) -> pd.DataFrame:
             CAST(o.order_purchase_timestamp AS DATE) AS purchase_date,
             CAST(o.order_delivered_customer_date AS DATE) AS delivered_date,
             CAST(o.order_estimated_delivery_date AS DATE) AS estimated_delivery_date
-        FROM rcl_orders o
-        JOIN rcl_customers c
+        FROM reconciled.rcl_orders o
+        JOIN reconciled.rcl_customers c
             ON o.customer_id = c.customer_id
         LEFT JOIN payment_agg p
             ON o.order_id = p.order_id
@@ -62,30 +60,30 @@ def extract_fact_order_source(engine) -> pd.DataFrame:
         raise ExtractDataError(f"Error extracting fact_order source: {e}") from e
 
 
-def extract_dim_maps(engine):
+def extract_dim_maps(conn):
     customer_map = pd.read_sql(
         """
         SELECT natural_key, surrogate_key
-        FROM dim_customer
+        FROM public.dim_customer
         WHERE is_current = TRUE
         """,
-        engine
+        conn
     ).rename(columns={"natural_key": "customer_natural_key", "surrogate_key": "customer_key"})
 
     payment_map = pd.read_sql(
         """
         SELECT surrogate_key AS payment_key, payment_type, payment_installments
-        FROM dim_payment
+        FROM public.dim_payment
         """,
-        engine
+        conn
     )
 
     date_map = pd.read_sql(
         """
         SELECT surrogate_key, full_date
-        FROM dim_date
+        FROM public.dim_date
         """,
-        engine
+        conn
     )
 
     date_map["full_date"] = pd.to_datetime(date_map["full_date"], errors="coerce").dt.date
@@ -119,7 +117,7 @@ def load_fact_order_table(engine, conn, fact_order: pd.DataFrame) -> None:
         log.error("[load_fact_order] fact_order dataframe is None or empty")
         raise LoadDataError("fact_order dataframe is None or empty")
 
-    customer_map, payment_map, purchase_map, delivered_map, estimated_map = extract_dim_maps(engine)
+    customer_map, payment_map, purchase_map, delivered_map, estimated_map = extract_dim_maps(conn)
 
     df = fact_order.copy()
 
@@ -157,9 +155,6 @@ def load_fact_order_table(engine, conn, fact_order: pd.DataFrame) -> None:
     ].copy()
 
     try:
-        log.info("[load_fact_order] Truncating fact_order")
-        conn.execute(text("TRUNCATE TABLE fact_order"))
-
         log.info(f"[load_fact_order] Inserting rows: {len(final_df)}")
         final_df.to_sql(
             "fact_order",

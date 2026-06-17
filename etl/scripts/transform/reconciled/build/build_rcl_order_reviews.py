@@ -19,6 +19,11 @@ def build_rcl_order_reviews(dataframe: pd.DataFrame) -> pd.DataFrame:
 
     df = dataframe.copy()
 
+    df = df.rename(columns={
+        # alias futuri, se dovessero servire
+        # "review_answer_date": "review_answer_timestamp",
+    })
+
     required_cols = [
         "review_id",
         "order_id",
@@ -28,6 +33,7 @@ def build_rcl_order_reviews(dataframe: pd.DataFrame) -> pd.DataFrame:
         "review_creation_date",
         "review_answer_timestamp"
     ]
+
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
         log.error(f"[build_rcl_order_reviews] Missing required columns: {missing}")

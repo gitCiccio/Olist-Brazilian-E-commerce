@@ -19,6 +19,10 @@ def build_rcl_products(dataframe: pd.DataFrame) -> pd.DataFrame:
 
     df = dataframe.copy()
 
+    df = df.rename(columns={
+        "product_description_lenght": "product_description_length"
+    })
+
     required_cols = [
         "product_id",
         "product_category_name",
@@ -30,6 +34,7 @@ def build_rcl_products(dataframe: pd.DataFrame) -> pd.DataFrame:
         "product_height_cm",
         "product_width_cm"
     ]
+
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
         log.error(f"[build_rcl_products] Missing required columns: {missing}")
@@ -55,6 +60,7 @@ def build_rcl_products(dataframe: pd.DataFrame) -> pd.DataFrame:
         "product_height_cm",
         "product_width_cm"
     ]
+
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 

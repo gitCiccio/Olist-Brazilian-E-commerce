@@ -8,7 +8,6 @@ Le sue funzionalità sono:
 """
 import pandas as pd
 from sqlalchemy.engine import Connection
-
 from logger.logger import AppLogger
 from exception.exceptions import ExtractDataError
 from etl.scripts.extract.batch.load_batch_to_staging import load_to_staging
@@ -29,37 +28,29 @@ def process_batch(
     )
 
     if conn is None:
-        log.error("[batch_processor] Database connection is None")
         raise ExtractDataError("Database connection is None")
-
     if not checkpoint_id or not checkpoint_id.strip():
-        log.error("[batch_processor] Checkpoint id is invalid")
         raise ExtractDataError("Checkpoint id is invalid")
-
     if chunk is None or chunk.empty:
-        log.error(f"[batch_processor] Empty batch for checkpoint_id={checkpoint_id}")
         raise ExtractDataError(f"Empty batch for checkpoint_id={checkpoint_id}")
-
     if next_last_row < 0:
-        log.error(f"[batch_processor] Invalid next_last_row for checkpoint_id={checkpoint_id}: {next_last_row}")
         raise ExtractDataError(
             f"Invalid next_last_row for checkpoint_id={checkpoint_id}: {next_last_row}"
         )
+
     try:
-        load_to_staging(conn, chunk, target_table)
-        update_checkpoint_progress(conn, checkpoint_id, next_last_row)
-        conn.commit()
+        with conn.begin_nested():
+            load_to_staging(conn, chunk, target_table)
+            update_checkpoint_progress(conn, checkpoint_id, next_last_row)
 
         log.info(
-            f"[batch_processor] Batch committed successfully for checkpoint_id={checkpoint_id} "
+            f"[batch_processor] Batch processed successfully for checkpoint_id={checkpoint_id} "
             f"up to row {next_last_row}"
         )
 
     except ExtractDataError:
-        conn.rollback()
         raise
     except Exception as e:
-        conn.rollback()
         log.error(
             f"[batch_processor] Error while processing batch for checkpoint_id={checkpoint_id}: {e}"
         )

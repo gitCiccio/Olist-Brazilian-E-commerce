@@ -34,6 +34,11 @@ def build_rcl_order_payments(dataframe: pd.DataFrame) -> pd.DataFrame:
 
     df = dataframe.copy()
 
+    df = df.rename(columns={
+        # alias futuri, se dovessero servire
+        # "payment_installment": "payment_installments",
+    })
+
     required_cols = [
         "order_id",
         "payment_sequential",
@@ -41,6 +46,7 @@ def build_rcl_order_payments(dataframe: pd.DataFrame) -> pd.DataFrame:
         "payment_installments",
         "payment_value"
     ]
+
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
         log.error(f"[build_rcl_order_payments] Missing required columns: {missing}")

@@ -52,6 +52,11 @@ def build_rcl_customers(dataframe: pd.DataFrame) -> pd.DataFrame:
 
     df = dataframe.copy()
 
+    df = df.rename(columns={
+        # aggiungi qui eventuali alias futuri, se serviranno
+        # "customer_zipcode_prefix": "customer_zip_code_prefix",
+    })
+
     required_cols = [
         'customer_id',
         'customer_unique_id',

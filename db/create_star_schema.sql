@@ -6,13 +6,13 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- DIMENSIONI
 -- ============================================================
 
-CREATE TABLE dim_product (
+CREATE TABLE IF NOT EXISTS dim_product (
     surrogate_key       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     natural_key         VARCHAR(255) NOT NULL UNIQUE,
     category_name_en    VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE dim_date (
+CREATE TABLE IF NOT EXISTS dim_date (
     surrogate_key       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     natural_key         INTEGER NOT NULL UNIQUE,
     full_date           DATE NOT NULL UNIQUE,
@@ -25,14 +25,14 @@ CREATE TABLE dim_date (
     is_weekend          BOOLEAN NOT NULL
 );
 
-CREATE TABLE dim_payment (
+CREATE TABLE IF NOT EXISTS dim_payment (
     surrogate_key           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     payment_type            VARCHAR(100) NOT NULL,
     payment_installments    SMALLINT NOT NULL,
     CONSTRAINT uq_dim_payment UNIQUE (payment_type, payment_installments)
 );
 
-CREATE TABLE dim_customer (
+CREATE TABLE IF NOT EXISTS dim_customer (
     surrogate_key       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     natural_key         VARCHAR(255) NOT NULL,           -- customer_unique_id
     customer_region     VARCHAR(50) NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE dim_customer (
         CHECK (valid_to IS NULL OR valid_to >= valid_from)
 );
 
-CREATE TABLE dim_seller (
+CREATE TABLE IF NOT EXISTS dim_seller (
     surrogate_key       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     natural_key         VARCHAR(255) NOT NULL,           -- seller_id
     seller_region       VARCHAR(50) NOT NULL,
@@ -62,7 +62,7 @@ CREATE TABLE dim_seller (
 -- FACT DI DETTAGLIO: livello order_item
 -- ============================================================
 
-CREATE TABLE fact_sale_item (
+CREATE TABLE IF NOT EXISTS fact_sale_item (
     surrogate_key               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     natural_key                 VARCHAR(255) NOT NULL UNIQUE, -- order_id || '-' || order_item_id
     order_id                    VARCHAR(255) NOT NULL,
@@ -106,7 +106,7 @@ CREATE TABLE fact_sale_item (
 -- FACT DI SUPPORTO: livello ordine
 -- ============================================================
 
-CREATE TABLE fact_order (
+CREATE TABLE IF NOT EXISTS fact_order (
     surrogate_key               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     natural_key                 VARCHAR(255) NOT NULL UNIQUE, -- order_id
     order_id                    VARCHAR(255) NOT NULL,
@@ -137,38 +137,16 @@ CREATE TABLE fact_order (
         FOREIGN KEY (estimated_delivery_date_key) REFERENCES dim_date(surrogate_key)
 );
 
--- ============================================================
--- ETL CHECKPOINT
--- ============================================================
-
-CREATE TABLE etl_checkpoint (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    source_file VARCHAR(255) NOT NULL,
-    last_row_extracted INT NOT NULL,
-    total_rows INT NOT NULL,
-    status VARCHAR(50) NOT NULL
-        CHECK (status IN ('CREATED', 'RUNNING', 'FAILED', 'COMPLETED')),
-    error_message TEXT,
-    created_at TIMESTAMP NOT NULL,
-    started_at TIMESTAMP,
-    updated_at TIMESTAMP,
-    failed_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    last_committed_at TIMESTAMP
-);
-
-CREATE INDEX idx_etl_checkpoint_source
-    ON etl_checkpoint (source_file, status, started_at DESC);
 
 -- ============================================================
 -- VINCOLI SCD2
 -- ============================================================
 
-CREATE UNIQUE INDEX uq_dim_customer_current
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dim_customer_current
     ON dim_customer (natural_key)
     WHERE is_current = TRUE;
 
-CREATE UNIQUE INDEX uq_dim_seller_current
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dim_seller_current
     ON dim_seller (natural_key)
     WHERE is_current = TRUE;
 
@@ -176,17 +154,17 @@ CREATE UNIQUE INDEX uq_dim_seller_current
 -- INDICI UTILI PER LE FACT
 -- ============================================================
 
-CREATE INDEX idx_fact_sale_item_order_id
+CREATE INDEX IF NOT EXISTS idx_fact_sale_item_order_id
     ON fact_sale_item (order_id);
 
-CREATE INDEX idx_fact_order_order_id
+CREATE INDEX IF NOT EXISTS idx_fact_order_order_id
     ON fact_order (order_id);
 
-CREATE INDEX idx_fact_sale_item_customer
+CREATE INDEX IF NOT EXISTS idx_fact_sale_item_customer
     ON fact_sale_item (customer_key);
 
-CREATE INDEX idx_fact_sale_item_seller
+CREATE INDEX IF NOT EXISTS idx_fact_sale_item_seller
     ON fact_sale_item (seller_key);
 
-CREATE INDEX idx_fact_order_customer
+CREATE INDEX IF NOT EXISTS idx_fact_order_customer
     ON fact_order (customer_key);

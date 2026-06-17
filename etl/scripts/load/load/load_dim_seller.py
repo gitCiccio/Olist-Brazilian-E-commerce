@@ -22,7 +22,7 @@ def extract_rcl_sellers(engine) -> pd.DataFrame:
             seller_city,
             seller_state,
             seller_region
-        FROM rcl_sellers
+        FROM reconciled.rcl_sellers
     """
 
     try:
@@ -62,8 +62,6 @@ def load_dim_seller_table(conn, dim_seller: pd.DataFrame) -> None:
         raise LoadDataError(f"Missing required columns in dim_seller: {missing}")
 
     try:
-        log.info("[load_dim_seller] Truncating dim_seller")
-        conn.execute(text("TRUNCATE TABLE dim_seller"))
 
         log.info(f"[load_dim_seller] Inserting rows into dim_seller: {len(dim_seller)}")
         dim_seller.to_sql(

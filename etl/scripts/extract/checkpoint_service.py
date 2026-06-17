@@ -10,8 +10,9 @@ from etl.scripts.extract.models import CheckpointInfo
 
 log = AppLogger(name="checkpoint_service.extract", log_file="checkpoint_service.log")
 
-# Metodo che trova il checkpoint esistente per un file o ne crea uno nuovo se non esiste, restituendo le informazioni del checkpoint
-# Funzione helper per l'orchestrator che saprà in base ad essa come ripartire
+CHECKPOINT_TABLE = "staging.etl_checkpoint"
+
+
 def get_or_create_checkpoint(conn, source_file: str, total_rows: int) -> CheckpointInfo:
     log.info(f"[checkpoint_service] get_or_create_checkpoint called with source_file={source_file}, total_rows={total_rows}")
 
@@ -31,9 +32,9 @@ def get_or_create_checkpoint(conn, source_file: str, total_rows: int) -> Checkpo
 
     try:
         row = conn.execute(
-            text("""
+            text(f"""
                 SELECT id, source_file, total_rows, last_row_extracted, status
-                FROM etl_checkpoint
+                FROM {CHECKPOINT_TABLE}
                 WHERE source_file = :source_file
                 ORDER BY created_at DESC
                 LIMIT 1
@@ -56,10 +57,9 @@ def get_or_create_checkpoint(conn, source_file: str, total_rows: int) -> Checkpo
             )
 
         log.info(f"[checkpoint_service] No checkpoint found, creating new one for {source_file}")
-        log.info(f"[checkpoint_service] Marking checkpoint as CREATED for {source_file}")
         created = conn.execute(
-            text("""
-                INSERT INTO etl_checkpoint (
+            text(f"""
+                INSERT INTO {CHECKPOINT_TABLE} (
                     source_file,
                     total_rows,
                     last_row_extracted,
@@ -92,9 +92,9 @@ def get_or_create_checkpoint(conn, source_file: str, total_rows: int) -> Checkpo
             f"Error while getting or creating checkpoint for {source_file}: {e}"
         ) from e
 
-# Aggiorna lo stato del checkpoint da CREATED -> RUNNING
+
 def mark_checkpoint_running(conn, checkpoint_id: str) -> None:
-    log.info(f"[checkpoint_service] Marking checkpoint {checkpoint_id}  as RUNNING")
+    log.info(f"[checkpoint_service] Marking checkpoint {checkpoint_id} as RUNNING")
 
     if conn is None:
         log.error("[checkpoint_service] Database connection is None")
@@ -108,9 +108,9 @@ def mark_checkpoint_running(conn, checkpoint_id: str) -> None:
 
     try:
         exist = conn.execute(
-            text("""
+            text(f"""
                 SELECT status
-                FROM etl_checkpoint
+                FROM {CHECKPOINT_TABLE}
                 WHERE id = :checkpoint_id
             """),
             {"checkpoint_id": checkpoint_id}
@@ -134,8 +134,8 @@ def mark_checkpoint_running(conn, checkpoint_id: str) -> None:
             )
 
         conn.execute(
-            text("""
-                UPDATE etl_checkpoint
+            text(f"""
+                UPDATE {CHECKPOINT_TABLE}
                 SET status = 'RUNNING',
                     started_at = NOW(),
                     updated_at = NOW()
@@ -152,12 +152,12 @@ def mark_checkpoint_running(conn, checkpoint_id: str) -> None:
     except ExtractDataError:
         raise
     except Exception as e:
-        log.error(f"[checkpoint_service] Error while getting checkpoint with id: {checkpoint_id}: {e}")
+        log.error(f"[checkpoint_service] Error while getting checkpoint with id {checkpoint_id}: {e}")
         raise ExtractDataError(
             f"Error while getting checkpoint with id {checkpoint_id}: {e}"
         ) from e
 
-# Aggiorna il checkpoint
+
 def update_checkpoint_progress(conn, checkpoint_id: str, last_row: int) -> None:
     log.info(f"[checkpoint_service] Updating checkpoint {checkpoint_id}")
 
@@ -177,9 +177,9 @@ def update_checkpoint_progress(conn, checkpoint_id: str, last_row: int) -> None:
 
     try:
         exist = conn.execute(
-            text("""
+            text(f"""
                 SELECT status, last_row_extracted
-                FROM etl_checkpoint
+                FROM {CHECKPOINT_TABLE}
                 WHERE id = :checkpoint_id
             """),
             {"checkpoint_id": checkpoint_id}
@@ -215,8 +215,8 @@ def update_checkpoint_progress(conn, checkpoint_id: str, last_row: int) -> None:
             )
 
         conn.execute(
-            text("""
-                UPDATE etl_checkpoint
+            text(f"""
+                UPDATE {CHECKPOINT_TABLE}
                 SET last_row_extracted = :last_row,
                     updated_at = NOW(),
                     last_committed_at = NOW()
@@ -233,12 +233,12 @@ def update_checkpoint_progress(conn, checkpoint_id: str, last_row: int) -> None:
     except ExtractDataError:
         raise
     except Exception as e:
-        log.error(f"[checkpoint_service] Error while updating checkpoint with id: {checkpoint_id}: {e}")
+        log.error(f"[checkpoint_service] Error while updating checkpoint with id {checkpoint_id}: {e}")
         raise ExtractDataError(
             f"Error while updating checkpoint with id {checkpoint_id}: {e}"
         ) from e
 
-# Aggiorna lo stato del checkpoint da RUNNING -> COMPLETED
+
 def mark_checkpoint_completed(conn, checkpoint_id: str) -> None:
     log.info(f"[checkpoint_service] Marking checkpoint {checkpoint_id} as COMPLETED")
 
@@ -254,11 +254,11 @@ def mark_checkpoint_completed(conn, checkpoint_id: str) -> None:
 
     try:
         exist = conn.execute(
-            text("""
-                 SELECT status
-                 FROM etl_checkpoint
-                 WHERE id = :checkpoint_id
-                 """),
+            text(f"""
+                SELECT status
+                FROM {CHECKPOINT_TABLE}
+                WHERE id = :checkpoint_id
+            """),
             {"checkpoint_id": checkpoint_id}
         ).mappings().first()
 
@@ -280,13 +280,13 @@ def mark_checkpoint_completed(conn, checkpoint_id: str) -> None:
             )
 
         conn.execute(
-            text("""
-                 UPDATE etl_checkpoint
-                 SET status     = 'COMPLETED',
-                     completed_at = NOW(),
-                     updated_at = NOW()
-                 WHERE id = :checkpoint_id
-                 """),
+            text(f"""
+                UPDATE {CHECKPOINT_TABLE}
+                SET status = 'COMPLETED',
+                    completed_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = :checkpoint_id
+            """),
             {"checkpoint_id": checkpoint_id}
         )
 
@@ -298,12 +298,12 @@ def mark_checkpoint_completed(conn, checkpoint_id: str) -> None:
     except ExtractDataError:
         raise
     except Exception as e:
-        log.error(f"[checkpoint_service] Error while getting checkpoint with id: {checkpoint_id}: {e}")
+        log.error(f"[checkpoint_service] Error while getting checkpoint with id {checkpoint_id}: {e}")
         raise ExtractDataError(
             f"Error while getting checkpoint with id {checkpoint_id}: {e}"
         ) from e
 
-# Aggiorna lo stato del checkpoint da RUNNING -> FAILED
+
 def mark_checkpoint_failed(conn, checkpoint_id: str, error_message: str | None = None) -> None:
     log.info(f"[checkpoint_service] Marking checkpoint {checkpoint_id} as FAILED")
 
@@ -319,11 +319,11 @@ def mark_checkpoint_failed(conn, checkpoint_id: str, error_message: str | None =
 
     try:
         exist = conn.execute(
-            text("""
-                 SELECT status
-                 FROM etl_checkpoint
-                 WHERE id = :checkpoint_id
-                 """),
+            text(f"""
+                SELECT status
+                FROM {CHECKPOINT_TABLE}
+                WHERE id = :checkpoint_id
+            """),
             {"checkpoint_id": checkpoint_id}
         ).mappings().first()
 
@@ -345,14 +345,14 @@ def mark_checkpoint_failed(conn, checkpoint_id: str, error_message: str | None =
             )
 
         conn.execute(
-            text("""
-                 UPDATE etl_checkpoint
-                 SET status       = 'FAILED',
-                     error_message = :error_message,
-                     failed_at = NOW(),
-                     updated_at   = NOW()
-                 WHERE id = :checkpoint_id
-                 """),
+            text(f"""
+                UPDATE {CHECKPOINT_TABLE}
+                SET status = 'FAILED',
+                    error_message = :error_message,
+                    failed_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = :checkpoint_id
+            """),
             {"checkpoint_id": checkpoint_id, "error_message": error_message}
         )
 
@@ -364,12 +364,12 @@ def mark_checkpoint_failed(conn, checkpoint_id: str, error_message: str | None =
     except ExtractDataError:
         raise
     except Exception as e:
-        log.error(f"[checkpoint_service] Error while getting checkpoint with id: {checkpoint_id}: {e}")
+        log.error(f"[checkpoint_service] Error while getting checkpoint with id {checkpoint_id}: {e}")
         raise ExtractDataError(
             f"Error while getting checkpoint with id {checkpoint_id}: {e}"
         ) from e
 
-# Reset del checkpoint
+
 def reset_checkpoint(conn, source_file: str) -> None:
     log.info(f"[checkpoint_service] Resetting checkpoint for source file: {source_file}")
 
@@ -385,9 +385,9 @@ def reset_checkpoint(conn, source_file: str) -> None:
 
     try:
         exist = conn.execute(
-            text("""
+            text(f"""
                 SELECT id, status
-                FROM etl_checkpoint
+                FROM {CHECKPOINT_TABLE}
                 WHERE source_file = :source_file
                 ORDER BY created_at DESC
                 LIMIT 1
@@ -414,15 +414,15 @@ def reset_checkpoint(conn, source_file: str) -> None:
             )
 
         conn.execute(
-            text("""
-                UPDATE etl_checkpoint
-                SET status              = 'CREATED',
-                    last_row_extracted  = 0,
-                    error_message       = NULL,
-                    completed_at        = NULL,
-                    failed_at           = NULL,
-                    last_committed_at   = NULL,
-                    updated_at          = NOW()
+            text(f"""
+                UPDATE {CHECKPOINT_TABLE}
+                SET status = 'CREATED',
+                    last_row_extracted = 0,
+                    error_message = NULL,
+                    completed_at = NULL,
+                    failed_at = NULL,
+                    last_committed_at = NULL,
+                    updated_at = NOW()
                 WHERE id = :checkpoint_id
             """),
             {"checkpoint_id": str(checkpoint_id)}

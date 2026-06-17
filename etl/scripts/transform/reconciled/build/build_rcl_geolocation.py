@@ -21,6 +21,11 @@ def build_rcl_geolocation(dataframe: pd.DataFrame) -> pd.DataFrame:
 
     df = dataframe.copy()
 
+    df = df.rename(columns={
+        # alias futuri, se dovessero comparire
+        # "geolocation_zipcode_prefix": "geolocation_zip_code_prefix",
+    })
+
     required_cols = [
         "geolocation_zip_code_prefix",
         "geolocation_lat",
@@ -28,6 +33,7 @@ def build_rcl_geolocation(dataframe: pd.DataFrame) -> pd.DataFrame:
         "geolocation_city",
         "geolocation_state"
     ]
+
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
         log.error(f"[build_rcl_geolocation] Missing required columns: {missing}")

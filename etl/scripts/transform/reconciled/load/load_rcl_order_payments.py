@@ -21,7 +21,7 @@ def extract_order_payments_from_staging(engine) -> pd.DataFrame:
             payment_type,
             payment_installments,
             payment_value
-        FROM public.order_payments
+        FROM staging.stg_order_payments
     """
 
     try:
