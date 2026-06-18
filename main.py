@@ -2,6 +2,7 @@ from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 import os
 
+from etl.scripts.data_quality.dataQualityMetrics import build_metrics_summary
 from etl.scripts.extract.orchestrator import run_staging_phase
 from etl.scripts.transform.orchstrator import run_reconciled_phase
 from etl.scripts.load.orchestrator import run_dw_pipeline
@@ -105,6 +106,9 @@ if __name__ == "__main__":
             engine_write=engine_dw
         )
 
+        log.info("--- PHASE: DQ METRICS SUMMARY ---")
+        summary_path = build_metrics_summary()
+        log.info(f"[main] DQ metrics summary saved in: {summary_path}")
         log.info("=== ETL COMPLETE ===")
 
     except Exception as e:
