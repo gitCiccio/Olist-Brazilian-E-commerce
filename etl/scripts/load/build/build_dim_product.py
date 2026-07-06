@@ -64,6 +64,26 @@ def build_dim_product(df_rcl: pd.DataFrame) -> pd.DataFrame:
         )
         df.loc[empty_category_mask, "category_name_en"] = "unknown"
 
+    # --- Misure fisiche (attributi logistici) ---
+    physical_cols = [
+        "product_weight_g",
+        "product_length_cm",
+        "product_height_cm",
+        "product_width_cm"
+    ]
+
+    for col in physical_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+            null_count = df[col].isna().sum()
+            if null_count > 0:
+                log.warning(f"[build_dim_product] Null {col} found: {null_count}")
+            # Convertiamo a Int64 (nullable integer) per mantenere i NULL
+            df[col] = df[col].astype("Int64")
+        else:
+            log.warning(f"[build_dim_product] Column {col} not found in source, defaulting to NULL")
+            df[col] = pd.array([pd.NA] * len(df), dtype="Int64")
+
     before_dedup_rows = len(df)
     df = df.drop_duplicates(subset=["natural_key"], keep="first")
     duplicates_removed = before_dedup_rows - len(df)
@@ -75,7 +95,11 @@ def build_dim_product(df_rcl: pd.DataFrame) -> pd.DataFrame:
 
     result = df[[
         "natural_key",
-        "category_name_en"
+        "category_name_en",
+        "product_weight_g",
+        "product_length_cm",
+        "product_height_cm",
+        "product_width_cm"
     ]].copy()
 
     log.info(f"[build_dim_product] Output rows for dim_product: {len(result)}")

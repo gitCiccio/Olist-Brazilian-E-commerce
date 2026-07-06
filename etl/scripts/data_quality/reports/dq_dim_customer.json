@@ -1,0 +1,50 @@
+{
+  "job_name": "dq_dim_customer",
+  "generated_at": "2026-07-04T15:33:46.832991+00:00",
+  "loaded_table_name": "dim_customer",
+  "counts": {
+    "source_rows": 99441,
+    "transformed_rows": 96096,
+    "loaded_rows": 96096,
+    "source_to_transformed_delta": -3345,
+    "transformed_to_loaded_delta": 0
+  },
+  "source_checks": {
+    "null_required": {
+      "customer_unique_id": 0,
+      "customer_region": 0,
+      "customer_city": 0,
+      "customer_state": 0
+    },
+    "empty_required": {
+      "customer_unique_id": 0,
+      "customer_region": 0,
+      "customer_city": 0,
+      "customer_state": 0
+    },
+    "duplicate_business_keys": 3345,
+    "domain_violations": {},
+    "range_violations": {}
+  },
+  "transformed_checks": {
+    "null_required": {
+      "natural_key": 0,
+      "customer_region": 0,
+      "customer_city": 0,
+      "customer_state": 0
+    },
+    "empty_required": {
+      "natural_key": 0,
+      "customer_region": 0,
+      "customer_city": 0,
+      "customer_state": 0
+    },
+    "duplicate_business_keys": 0,
+    "domain_violations": {
+      "customer_state": 0
+    },
+    "range_violations": {}
+  },
+  "extra_metrics": {},
+  "status": "OK"
+}

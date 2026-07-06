@@ -377,18 +377,27 @@ ORDER BY
 SELECT
     dp.payment_type,
     dp.payment_installments,
-    COUNT(*) AS orders_count,
-    ROUND(SUM(fo.payment_value), 2) AS total_payment_value,
-    ROUND(AVG(fo.payment_value), 2) AS avg_payment_value
+    dprod.category_name_en,
+    COUNT(DISTINCT fo.order_id) AS orders_count,
+    ROUND(SUM(fsi.price), 2) AS total_revenue,
+    ROUND(AVG(fsi.price), 2) AS avg_item_revenue
 FROM fact_order fo
+-- Join cruciale tra la testata dell'ordine e le sue singole righe prodotto
+JOIN fact_sale_item fsi
+    ON fo.order_id = fsi.order_id
+-- Join per i metodi di pagamento
 JOIN dim_payment dp
     ON fo.payment_key = dp.surrogate_key
+-- Join per le categorie dei prodotti
+JOIN dim_product dprod
+    ON fsi.product_key = dprod.surrogate_key
+WHERE fo.order_status = 'delivered'
 GROUP BY
     dp.payment_type,
-    dp.payment_installments
+    dp.payment_installments,
+    dprod.category_name_en
 ORDER BY
-    dp.payment_type,
-    dp.payment_installments;
+    total_revenue DESC;
 
 
 -- ============================================================
@@ -460,3 +469,34 @@ GROUP BY
 ORDER BY
     dp.category_name_en,
     revenue_items_only DESC;
+
+
+SELECT
+    d_purch.year AS year,
+    d_purch.month AS month,
+    c.customer_state AS customer_state,
+    p.category_name_en AS category_name_en,
+    SUM(f.price) AS total_revenue,
+    AVG(d_deliv.full_date - d_purch.full_date) AS avg_delivery_days
+FROM fact_sale_item f
+-- Join per la data di acquisto (per anno e mese)
+JOIN dim_date d_purch
+    ON f.purchase_date_key = d_purch.surrogate_key
+-- Join per la data di consegna (per calcolare i giorni di spedizione)
+JOIN dim_date d_deliv
+    ON f.delivered_date_key = d_deliv.surrogate_key
+-- Join per i dati geografici del cliente
+JOIN dim_customer c
+    ON f.customer_key = c.surrogate_key
+-- Join per le categorie dei prodotti
+JOIN dim_product p
+    ON f.product_key = p.surrogate_key
+WHERE f.order_status = 'delivered'
+  AND f.delivered_date_key IS NOT NULL
+GROUP BY
+    d_purch.year,
+    d_purch.month,
+    c.customer_state,
+    p.category_name_en;
+
+

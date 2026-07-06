@@ -9,7 +9,11 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS dim_product (
     surrogate_key       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     natural_key         VARCHAR(255) NOT NULL UNIQUE,
-    category_name_en    VARCHAR(255) NOT NULL
+    category_name_en    VARCHAR(255) NOT NULL,
+    product_weight_g    INTEGER,
+    product_length_cm   INTEGER,
+    product_height_cm   INTEGER,
+    product_width_cm    INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS dim_date (
@@ -59,7 +63,7 @@ CREATE TABLE IF NOT EXISTS dim_seller (
 );
 
 -- ============================================================
--- FACT DI DETTAGLIO: livello order_item
+-- FACT TABLE UNICA: livello order_item
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS fact_sale_item (
@@ -71,10 +75,12 @@ CREATE TABLE IF NOT EXISTS fact_sale_item (
     item_count                  SMALLINT NOT NULL DEFAULT 1,
     price                       DECIMAL(10,2) NOT NULL,
     freight_value               DECIMAL(10,2) NOT NULL,
+    review_score                DECIMAL(3,1),
 
     product_key                 UUID NOT NULL,
     customer_key                UUID NOT NULL,
     seller_key                  UUID NOT NULL,
+    payment_key                 UUID,
     purchase_date_key           UUID NOT NULL,
     shipping_limit_date_key     UUID,
     delivered_date_key          UUID,
@@ -88,6 +94,9 @@ CREATE TABLE IF NOT EXISTS fact_sale_item (
 
     CONSTRAINT fk_fact_item_seller
         FOREIGN KEY (seller_key) REFERENCES dim_seller(surrogate_key),
+
+    CONSTRAINT fk_fact_item_payment
+        FOREIGN KEY (payment_key) REFERENCES dim_payment(surrogate_key),
 
     CONSTRAINT fk_fact_item_purchase_date
         FOREIGN KEY (purchase_date_key) REFERENCES dim_date(surrogate_key),
@@ -103,42 +112,6 @@ CREATE TABLE IF NOT EXISTS fact_sale_item (
 );
 
 -- ============================================================
--- FACT DI SUPPORTO: livello ordine
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS fact_order (
-    surrogate_key               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    natural_key                 VARCHAR(255) NOT NULL UNIQUE, -- order_id
-    order_id                    VARCHAR(255) NOT NULL,
-    order_status                VARCHAR(50) NOT NULL,
-    payment_value               DECIMAL(10,2) NOT NULL,
-    review_score                DECIMAL(3,1),
-    delivery_days               SMALLINT,
-
-    customer_key                UUID NOT NULL,
-    payment_key                 UUID,
-    purchase_date_key           UUID NOT NULL,
-    delivered_date_key          UUID,
-    estimated_delivery_date_key UUID,
-
-    CONSTRAINT fk_fact_order_customer
-        FOREIGN KEY (customer_key) REFERENCES dim_customer(surrogate_key),
-
-    CONSTRAINT fk_fact_order_payment
-        FOREIGN KEY (payment_key) REFERENCES dim_payment(surrogate_key),
-
-    CONSTRAINT fk_fact_order_purchase_date
-        FOREIGN KEY (purchase_date_key) REFERENCES dim_date(surrogate_key),
-
-    CONSTRAINT fk_fact_order_delivered_date
-        FOREIGN KEY (delivered_date_key) REFERENCES dim_date(surrogate_key),
-
-    CONSTRAINT fk_fact_order_estimated_delivery_date
-        FOREIGN KEY (estimated_delivery_date_key) REFERENCES dim_date(surrogate_key)
-);
-
-
--- ============================================================
 -- VINCOLI SCD2
 -- ============================================================
 
@@ -151,14 +124,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_dim_seller_current
     WHERE is_current = TRUE;
 
 -- ============================================================
--- INDICI UTILI PER LE FACT
+-- INDICI UTILI PER LA FACT TABLE
 -- ============================================================
 
 CREATE INDEX IF NOT EXISTS idx_fact_sale_item_order_id
     ON fact_sale_item (order_id);
-
-CREATE INDEX IF NOT EXISTS idx_fact_order_order_id
-    ON fact_order (order_id);
 
 CREATE INDEX IF NOT EXISTS idx_fact_sale_item_customer
     ON fact_sale_item (customer_key);
@@ -166,5 +136,5 @@ CREATE INDEX IF NOT EXISTS idx_fact_sale_item_customer
 CREATE INDEX IF NOT EXISTS idx_fact_sale_item_seller
     ON fact_sale_item (seller_key);
 
-CREATE INDEX IF NOT EXISTS idx_fact_order_customer
-    ON fact_order (customer_key);
+CREATE INDEX IF NOT EXISTS idx_fact_sale_item_payment
+    ON fact_sale_item (payment_key);

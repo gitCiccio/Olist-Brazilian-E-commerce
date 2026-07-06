@@ -13,7 +13,6 @@ def build_metrics_summary():
         "dq_dim_payment.json",
         "dq_dim_product.json",
         "dq_dim_seller.json",
-        "dq_fact_order.json",
         "dq_fact_sale_item.json",
     ]
 

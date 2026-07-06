@@ -1,0 +1,50 @@
+{
+  "job_name": "dq_dim_seller",
+  "generated_at": "2026-07-04T15:33:47.259278+00:00",
+  "loaded_table_name": "dim_seller",
+  "counts": {
+    "source_rows": 3095,
+    "transformed_rows": 3095,
+    "loaded_rows": 3095,
+    "source_to_transformed_delta": 0,
+    "transformed_to_loaded_delta": 0
+  },
+  "source_checks": {
+    "null_required": {
+      "seller_id": 0,
+      "seller_region": 0,
+      "seller_city": 0,
+      "seller_state": 0
+    },
+    "empty_required": {
+      "seller_id": 0,
+      "seller_region": 0,
+      "seller_city": 0,
+      "seller_state": 0
+    },
+    "duplicate_business_keys": 0,
+    "domain_violations": {},
+    "range_violations": {}
+  },
+  "transformed_checks": {
+    "null_required": {
+      "natural_key": 0,
+      "seller_region": 0,
+      "seller_city": 0,
+      "seller_state": 0
+    },
+    "empty_required": {
+      "natural_key": 0,
+      "seller_region": 0,
+      "seller_city": 0,
+      "seller_state": 0
+    },
+    "duplicate_business_keys": 0,
+    "domain_violations": {
+      "seller_state": 0
+    },
+    "range_violations": {}
+  },
+  "extra_metrics": {},
+  "status": "OK"
+}

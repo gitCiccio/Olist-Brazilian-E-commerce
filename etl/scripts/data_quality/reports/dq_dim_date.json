@@ -1,0 +1,36 @@
+{
+  "job_name": "dq_dim_date",
+  "generated_at": "2026-07-04T15:33:41.450608+00:00",
+  "loaded_table_name": "dim_date",
+  "counts": {
+    "source_rows": 718,
+    "transformed_rows": 717,
+    "loaded_rows": 717,
+    "source_to_transformed_delta": -1,
+    "transformed_to_loaded_delta": 0
+  },
+  "source_checks": {
+    "null_required": {
+      "full_date": 1
+    },
+    "empty_required": {
+      "full_date": 0
+    },
+    "duplicate_business_keys": 0,
+    "domain_violations": {},
+    "range_violations": {}
+  },
+  "transformed_checks": {
+    "null_required": {
+      "full_date": 0
+    },
+    "empty_required": {
+      "full_date": 0
+    },
+    "duplicate_business_keys": 0,
+    "domain_violations": {},
+    "range_violations": {}
+  },
+  "extra_metrics": {},
+  "status": "OK"
+}

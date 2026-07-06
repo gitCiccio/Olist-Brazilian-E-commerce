@@ -5,7 +5,6 @@ from etl.scripts.load.load.load_dim_date import run_load_dim_date
 from etl.scripts.load.load.load_dim_payment import run_load_dim_payment
 from etl.scripts.load.load.load_dim_product import run_load_dim_product
 from etl.scripts.load.load.load_dim_seller import run_load_dim_seller
-from etl.scripts.load.load.load_fact_order import run_load_fact_order
 from etl.scripts.load.load.load_fact_sale_item import run_load_fact_sale_item
 from logger.logger import AppLogger
 
@@ -21,7 +20,6 @@ def run_dw_pipeline(engine_read, engine_write) -> None:
         conn.execute(text("""
             TRUNCATE TABLE
                 fact_sale_item,
-                fact_order,
                 dim_payment,
                 dim_product,
                 dim_seller,
@@ -35,8 +33,6 @@ def run_dw_pipeline(engine_read, engine_write) -> None:
         run_load_dim_seller(engine_read, conn)
         run_load_dim_product(engine_read, conn)
         run_load_dim_payment(engine_read, conn)
-        run_load_fact_order(engine_read, conn)
         run_load_fact_sale_item(engine_read, conn)
 
     log.info("[dw.orchestrator] Pipeline completed")
-

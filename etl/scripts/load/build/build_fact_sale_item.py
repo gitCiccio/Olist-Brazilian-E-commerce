@@ -26,6 +26,9 @@ def build_fact_sale_item(df_rcl: pd.DataFrame) -> pd.DataFrame:
         "seller_natural_key",
         "price",
         "freight_value",
+        "review_score",
+        "payment_type",
+        "payment_installments",
         "purchase_date",
         "shipping_limit_date",
         "delivered_date",
@@ -51,6 +54,13 @@ def build_fact_sale_item(df_rcl: pd.DataFrame) -> pd.DataFrame:
     df["price"] = pd.to_numeric(df["price"], errors="coerce").fillna(0).round(2)
     df["freight_value"] = pd.to_numeric(df["freight_value"], errors="coerce").fillna(0).round(2)
     df["item_count"] = 1
+
+    # --- review_score ereditato dal livello ordine ---
+    df["review_score"] = pd.to_numeric(df["review_score"], errors="coerce").round(1)
+
+    # --- payment fields per lookup dimensionale ---
+    df["payment_type"] = df["payment_type"].fillna("not_defined").astype(str).str.strip().str.lower()
+    df["payment_installments"] = pd.to_numeric(df["payment_installments"], errors="coerce").fillna(0).astype(int)
 
     df["purchase_date"] = pd.to_datetime(df["purchase_date"], errors="coerce").dt.date
     df["shipping_limit_date"] = pd.to_datetime(df["shipping_limit_date"], errors="coerce").dt.date
@@ -80,9 +90,12 @@ def build_fact_sale_item(df_rcl: pd.DataFrame) -> pd.DataFrame:
             "item_count",
             "price",
             "freight_value",
+            "review_score",
             "product_natural_key",
             "customer_natural_key",
             "seller_natural_key",
+            "payment_type",
+            "payment_installments",
             "purchase_date",
             "shipping_limit_date",
             "delivered_date",
