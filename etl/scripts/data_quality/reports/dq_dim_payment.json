@@ -1,0 +1,46 @@
+{
+  "job_name": "dq_dim_payment",
+  "generated_at": "2026-07-04T15:33:50.111160+00:00",
+  "loaded_table_name": "dim_payment",
+  "counts": {
+    "source_rows": 103886,
+    "transformed_rows": 28,
+    "loaded_rows": 28,
+    "source_to_transformed_delta": -103858,
+    "transformed_to_loaded_delta": 0
+  },
+  "source_checks": {
+    "null_required": {
+      "payment_type": 0,
+      "payment_installments": 0
+    },
+    "empty_required": {
+      "payment_type": 0,
+      "payment_installments": 0
+    },
+    "duplicate_business_keys": 103858,
+    "domain_violations": {},
+    "range_violations": {
+      "payment_installments": 0
+    }
+  },
+  "transformed_checks": {
+    "null_required": {
+      "payment_type": 0,
+      "payment_installments": 0
+    },
+    "empty_required": {
+      "payment_type": 0,
+      "payment_installments": 0
+    },
+    "duplicate_business_keys": 0,
+    "domain_violations": {
+      "payment_type": 0
+    },
+    "range_violations": {
+      "payment_installments": 0
+    }
+  },
+  "extra_metrics": {},
+  "status": "OK"
+}

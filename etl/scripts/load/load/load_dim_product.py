@@ -19,7 +19,11 @@ def extract_rcl_products(engine) -> pd.DataFrame:
     query = """
         SELECT
         p.product_id AS natural_key,
-        t.product_category_name_english AS category_name_en
+        t.product_category_name_english AS category_name_en,
+        p.product_weight_g,
+        p.product_length_cm,
+        p.product_height_cm,
+        p.product_width_cm
     FROM reconciled.rcl_products p
     LEFT JOIN reconciled.rcl_product_category_translation t
         ON p.product_category_name = t.product_category_name
@@ -52,7 +56,11 @@ def load_dim_product_table(conn, dim_product: pd.DataFrame) -> None:
 
     required_cols = [
         "natural_key",
-        "category_name_en"
+        "category_name_en",
+        "product_weight_g",
+        "product_length_cm",
+        "product_height_cm",
+        "product_width_cm"
     ]
 
     missing = [c for c in required_cols if c not in dim_product.columns]

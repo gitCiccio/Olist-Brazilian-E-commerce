@@ -15,6 +15,21 @@ def extract_fact_sale_item_source(engine) -> pd.DataFrame:
         raise ExtractDataError("Database engine is None")
 
     query = """
+        WITH review_agg AS (
+            SELECT
+                order_id,
+                ROUND(AVG(review_score)::numeric, 1) AS review_score
+            FROM reconciled.rcl_order_reviews
+            GROUP BY order_id
+        ),
+        primary_payment AS (
+            SELECT
+                order_id,
+                payment_type,
+                payment_installments
+            FROM reconciled.rcl_order_payments
+            WHERE payment_sequential = 1
+        )
         SELECT
             oi.order_id,
             oi.order_item_id,
@@ -24,6 +39,9 @@ def extract_fact_sale_item_source(engine) -> pd.DataFrame:
             oi.seller_id AS seller_natural_key,
             oi.price,
             oi.freight_value,
+            r.review_score,
+            pp.payment_type,
+            pp.payment_installments,
             CAST(o.order_purchase_timestamp AS DATE) AS purchase_date,
             CAST(oi.shipping_limit_date AS DATE) AS shipping_limit_date,
             CAST(o.order_delivered_customer_date AS DATE) AS delivered_date,
@@ -33,6 +51,10 @@ def extract_fact_sale_item_source(engine) -> pd.DataFrame:
             ON oi.order_id = o.order_id
         JOIN reconciled.rcl_customers c
             ON o.customer_id = c.customer_id
+        LEFT JOIN review_agg r
+            ON o.order_id = r.order_id
+        LEFT JOIN primary_payment pp
+            ON o.order_id = pp.order_id
     """
 
     try:
@@ -71,6 +93,14 @@ def extract_dim_maps(conn):
         conn
     ).rename(columns={"natural_key": "seller_natural_key", "surrogate_key": "seller_key"})
 
+    payment_map = pd.read_sql(
+        """
+        SELECT surrogate_key AS payment_key, payment_type, payment_installments
+        FROM public.dim_payment
+        """,
+        conn
+    )
+
     date_map = pd.read_sql(
         """
         SELECT surrogate_key, full_date
@@ -97,7 +127,10 @@ def extract_dim_maps(conn):
         "full_date": "estimated_delivery_date"
     })
 
-    return product_map, customer_map, seller_map, purchase_map, shipping_map, delivered_map, estimated_map
+    return (
+        product_map, customer_map, seller_map, payment_map,
+        purchase_map, shipping_map, delivered_map, estimated_map
+    )
 
 
 def load_fact_sale_item_table(engine, conn, fact_sale_item: pd.DataFrame) -> None:
@@ -115,6 +148,7 @@ def load_fact_sale_item_table(engine, conn, fact_sale_item: pd.DataFrame) -> Non
         product_map,
         customer_map,
         seller_map,
+        payment_map,
         purchase_map,
         shipping_map,
         delivered_map,
@@ -126,6 +160,7 @@ def load_fact_sale_item_table(engine, conn, fact_sale_item: pd.DataFrame) -> Non
     df = df.merge(product_map, on="product_natural_key", how="left")
     df = df.merge(customer_map, on="customer_natural_key", how="left")
     df = df.merge(seller_map, on="seller_natural_key", how="left")
+    df = df.merge(payment_map, on=["payment_type", "payment_installments"], how="left")
     df = df.merge(purchase_map, on="purchase_date", how="left")
     df = df.merge(shipping_map, on="shipping_limit_date", how="left")
     df = df.merge(delivered_map, on="delivered_date", how="left")
@@ -145,6 +180,11 @@ def load_fact_sale_item_table(engine, conn, fact_sale_item: pd.DataFrame) -> Non
     if missing_purchase > 0:
         raise LoadDataError(f"Missing purchase_date_key for {missing_purchase} rows")
 
+    # payment_key può essere NULL se l'ordine non ha pagamenti registrati
+    missing_payment = df["payment_key"].isna().sum()
+    if missing_payment > 0:
+        log.warning(f"[load_fact_sale_item] Missing payment_key for {missing_payment} rows (will be NULL)")
+
     final_df = df[
         [
             "natural_key",
@@ -154,9 +194,11 @@ def load_fact_sale_item_table(engine, conn, fact_sale_item: pd.DataFrame) -> Non
             "item_count",
             "price",
             "freight_value",
+            "review_score",
             "product_key",
             "customer_key",
             "seller_key",
+            "payment_key",
             "purchase_date_key",
             "shipping_limit_date_key",
             "delivered_date_key",

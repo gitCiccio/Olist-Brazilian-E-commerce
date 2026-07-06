@@ -1,0 +1,36 @@
+{
+  "job_name": "dq_dim_product",
+  "generated_at": "2026-07-04T15:33:49.824381+00:00",
+  "loaded_table_name": "dim_product",
+  "counts": {
+    "source_rows": 32951,
+    "transformed_rows": 32951,
+    "loaded_rows": 32951,
+    "source_to_transformed_delta": 0,
+    "transformed_to_loaded_delta": 0
+  },
+  "source_checks": {
+    "null_required": {
+      "product_id": -1
+    },
+    "empty_required": {
+      "product_id": -1
+    },
+    "duplicate_business_keys": -1,
+    "domain_violations": {},
+    "range_violations": {}
+  },
+  "transformed_checks": {
+    "null_required": {
+      "natural_key": 0
+    },
+    "empty_required": {
+      "natural_key": 0
+    },
+    "duplicate_business_keys": 0,
+    "domain_violations": {},
+    "range_violations": {}
+  },
+  "extra_metrics": {},
+  "status": "OK"
+}
