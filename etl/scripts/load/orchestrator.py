@@ -14,6 +14,16 @@ log = AppLogger(name="dw.orchestrator", log_file="dw_load.log")
 from sqlalchemy import text
 
 def run_dw_pipeline(engine_read, engine_write) -> None:
+    """
+    Orchestra il caricamento del Data Warehouse a schema a stella.
+    - Esegue una TRUNCATE CASCADE delle tabelle dei fatti e delle dimensioni 
+      per garantire l'idempotenza e rimuovere dipendenze esterne in sicurezza.
+    - Carica in sequenza le dimensioni (`dim_date`, `dim_customer`, `dim_seller`, `dim_product`, `dim_payment`).
+    - Infine, carica la tabella dei fatti (`fact_sale_item`), che dipende logicamente dalle dimensioni.
+
+    :param engine_read: Connessione al database sorgente (reconciled).
+    :param engine_write: Connessione al database di destinazione (dwh).
+    """
     log.info("[dw.orchestrator] Pipeline started")
 
     with engine_write.begin() as conn:

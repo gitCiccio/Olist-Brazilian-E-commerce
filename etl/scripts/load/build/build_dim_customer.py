@@ -7,6 +7,15 @@ log = AppLogger(name="dw.build_dim_customer", log_file="dw_load.log")
 
 
 def build_dim_customer(df_rcl: pd.DataFrame) -> pd.DataFrame:
+    """
+    Trasforma i dati dei clienti provenienti da reconciled nel formato atteso dalla `dim_customer`.
+    - Gestisce i nulli e le stringhe vuote per `customer_unique_id` scartando i record invalidi.
+    - Gestisce i valori nulli per regione e città (impostando a 'unknown') e per lo stato ('XX').
+    - Deduplica i record mantenendo una sola occorrenza per `customer_unique_id` (chiave naturale).
+
+    :param df_rcl: DataFrame Pandas con i dati estratti dall'area reconciled.
+    :return: DataFrame Pandas formattato per il DWH, con la colonna `natural_key` rinominata.
+    """
     log.info("[build_dim_customer] Build started")
 
     if df_rcl is None:

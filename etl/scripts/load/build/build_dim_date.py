@@ -7,6 +7,16 @@ log = AppLogger(name="dw.build_dim_date", log_file="dw_load.log")
 
 
 def build_dim_date(df_dates: pd.DataFrame) -> pd.DataFrame:
+    """
+    Costruisce la dimensione temporale a partire da un elenco di date univoche.
+    - Converte le date in formato `datetime` (normalizzate a mezzanotte).
+    - Rimuove le date non valide o mancanti.
+    - Estrae attributi temporali utili per le analisi (giorno, mese, anno, trimestre, ecc.).
+    - Crea una `natural_key` intera in formato YYYYMMDD.
+
+    :param df_dates: DataFrame Pandas contenente l'elenco delle date distinte.
+    :return: DataFrame Pandas arricchito con gli attributi temporali.
+    """
     log.info("[build_dim_date] Build started")
 
     if df_dates is None:

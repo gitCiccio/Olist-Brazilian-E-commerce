@@ -8,6 +8,12 @@ log = AppLogger(name="rcl.geolocation.load", log_file="rcl_geolocation.log")
 
 
 def extract_geolocation_from_staging(engine) -> pd.DataFrame:
+    """
+    Estrae tutti i record di geolocalizzazione dalla tabella `stg_geolocation` (area di staging).
+    
+    :param engine: Connessione al database di staging.
+    :return: DataFrame Pandas con i dati estratti.
+    """
     log.info("[load_rcl_geolocation] Extract from geolocation started")
 
     if engine is None:
@@ -34,6 +40,13 @@ def extract_geolocation_from_staging(engine) -> pd.DataFrame:
 
 
 def load_rcl_geolocation_table(conn, df_rcl: pd.DataFrame) -> None:
+    """
+    Carica i dati di geolocalizzazione trasformati nella tabella `rcl_geolocation` dell'area reconciled.
+    Esegue prima una TRUNCATE per garantire l'idempotenza.
+
+    :param conn: Connessione al database (reconciled).
+    :param df_rcl: DataFrame Pandas con i dati puliti e arricchiti.
+    """
     log.info("[load_rcl_geolocation] Load into rcl_geolocation started")
 
     if conn is None:

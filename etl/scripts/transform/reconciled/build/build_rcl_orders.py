@@ -7,6 +7,16 @@ log = AppLogger(name="rcl.orders.build", log_file="rcl_orders.log")
 
 
 def build_rcl_orders(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Esegue la pulizia e l'arricchimento dei dati degli ordini.
+    - Gestisce i valori nulli e pulisce lo stato dell'ordine.
+    - Converte le colonne delle date (timestamp) nel formato datetime di Pandas, 
+      forzando a NaT (Not a Time) gli eventuali valori non validi (errors='coerce').
+    - Rimuove eventuali duplicati esatti.
+
+    :param dataframe: DataFrame Pandas contenente i dati raw degli ordini dallo staging.
+    :return: DataFrame Pandas pulito per l'area reconciled.
+    """
     log.info("[build_rcl_orders] Build started")
 
     if dataframe is None:
@@ -18,11 +28,6 @@ def build_rcl_orders(dataframe: pd.DataFrame) -> pd.DataFrame:
         raise DataCleaningError("Orders dataframe is empty")
 
     df = dataframe.copy()
-
-    df = df.rename(columns={
-        # alias futuri, se dovessero servire
-        # "order_purchase_date": "order_purchase_timestamp",
-    })
 
     required_cols = [
         "order_id",

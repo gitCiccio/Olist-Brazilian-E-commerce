@@ -22,6 +22,18 @@ def process_batch(
     next_last_row: int,
     target_table: str
 ) -> None:
+    """
+    Tratta un singolo batch come un'unità transazionale atomica (blocco di lavoro).
+    Carica i dati nello staging e aggiorna il progresso del checkpoint 
+    all'interno di una transazione annidata (savepoint). In caso di errore, 
+    entrambe le operazioni vengono annullate per garantire consistenza.
+
+    :param conn: Connessione al database.
+    :param checkpoint_id: ID del checkpoint corrente.
+    :param chunk: Il DataFrame Pandas contenente i dati del batch corrente.
+    :param next_last_row: Il numero di riga a cui aggiornare il checkpoint dopo il caricamento.
+    :param target_table: Nome della tabella di destinazione nello staging.
+    """
     log.info(
         f"[batch_processor] Processing batch for checkpoint_id={checkpoint_id} "
         f"with {len(chunk)} rows up to row {next_last_row}"

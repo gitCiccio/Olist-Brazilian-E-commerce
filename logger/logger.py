@@ -20,6 +20,10 @@ class _ColoredFormatter(logging.Formatter):
     }
 
     def format(self, record: logging.LogRecord) -> str:
+        """
+        Formatta il log record inserendo i codici ANSI per i colori 
+        in base al livello (es. Verde per INFO, Rosso per ERROR).
+        """
         color = self.LEVEL_COLORS.get(record.levelno, _Colors.RESET)
         record.levelname = f"{color}{record.levelname:<8}{_Colors.RESET}"
         return super().format(record)
@@ -35,6 +39,11 @@ class AppLogger:
         level: int = logging.DEBUG,
         log_file: str | None = "app.log",
     ) -> None:
+        """
+        Inizializza un logger personalizzato.
+        Crea due handler: uno per la console (con output colorato) 
+        e uno per un file (testo normale).
+        """
         self._logger = logging.getLogger(name)
 
         # Evita di aggiungere handler duplicati
@@ -58,18 +67,23 @@ class AppLogger:
 
     # Espone i metodi standard
     def debug(self, msg: str, *args, **kwargs) -> None:
+        """Stampa un messaggio a livello DEBUG, utile per diagnosticare in fase di sviluppo."""
         self._logger.debug(msg, *args, **kwargs)
 
     def info(self, msg: str, *args, **kwargs) -> None:
+        """Stampa un messaggio a livello INFO, usato per tracciare il normale flusso esecutivo."""
         self._logger.info(msg, *args, **kwargs)
 
     def warning(self, msg: str, *args, **kwargs) -> None:
+        """Stampa un messaggio a livello WARNING, indica situazioni anomale non bloccanti."""
         self._logger.warning(msg, *args, **kwargs)
 
     def error(self, msg: str, *args, **kwargs) -> None:
+        """Stampa un messaggio a livello ERROR, indica il fallimento di un'operazione specifica."""
         self._logger.error(msg, *args, **kwargs)
 
     def critical(self, msg: str, *args, **kwargs) -> None:
+        """Stampa un messaggio a livello CRITICAL, usato per errori gravissimi o crash globali."""
         self._logger.critical(msg, *args, **kwargs)
 
     def exception(self, msg: str, *args, **kwargs) -> None:

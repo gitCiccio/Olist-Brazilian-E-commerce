@@ -10,6 +10,13 @@ log = AppLogger(name="dw.load_dim_seller", log_file="dw_load.log")
 
 
 def extract_rcl_sellers(engine) -> pd.DataFrame:
+    """
+    Estrae i dati dei venditori dall'area reconciled, selezionando 
+    solo le informazioni rilevanti per la dimensione (id, città, stato, regione).
+
+    :param engine: Connessione al database (schema reconciled).
+    :return: DataFrame Pandas con i dati dei venditori estratti.
+    """
     log.info("[load_dim_seller] Extract from rcl_sellers started")
 
     if engine is None:
@@ -36,6 +43,13 @@ def extract_rcl_sellers(engine) -> pd.DataFrame:
 
 
 def load_dim_seller_table(conn, dim_seller: pd.DataFrame) -> None:
+    """
+    Carica i dati della dimensione nella tabella `dim_seller` del Data Warehouse.
+    Nota: la TRUNCATE della tabella è gestita dall'orchestratore, qui si esegue solo l'inserimento in append.
+
+    :param conn: Connessione al database (schema public/dwh).
+    :param dim_seller: DataFrame Pandas con i dati pronti per il DWH.
+    """
     log.info("[load_dim_seller] Load into dim_seller started")
 
     if conn is None:
@@ -80,6 +94,16 @@ def load_dim_seller_table(conn, dim_seller: pd.DataFrame) -> None:
 
 
 def run_load_dim_seller(engine, conn) -> None:
+    """
+    Esegue l'intero flusso di caricamento per `dim_seller`:
+    1. Extract da reconciled.
+    2. Build (generazione delle surrogate keys e gestione eventuali nulli/sconosciuti).
+    3. Load nel DWH.
+    4. Esecuzione dei controlli di Data Quality (DQ) post-caricamento.
+
+    :param engine: Connessione in lettura (reconciled).
+    :param conn: Connessione in scrittura (dwh).
+    """
     log.info("[load_dim_seller] Pipeline started")
 
     df_rcl = extract_rcl_sellers(engine)

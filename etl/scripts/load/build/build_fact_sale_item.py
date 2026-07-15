@@ -7,6 +7,17 @@ log = AppLogger(name="dw.build_fact_sale_item", log_file="dw_load.log")
 
 
 def build_fact_sale_item(df_rcl: pd.DataFrame) -> pd.DataFrame:
+    """
+    Trasforma i dati grezzi estratti in `fact_sale_item` nel formato definitivo per il caricamento.
+    - Pulisce e tipizza gli identificatori (es. converte `order_item_id` in numerico).
+    - Gestisce i nulli sulle misure (prezzo, trasporto, recensione) impostando valori di default (0).
+    - Imposta a 1 il contatore fisso `item_count`.
+    - Normalizza le date (troncate a livello di giorno).
+    - Genera la chiave naturale composta per la deduplicazione (`order_id` + `order_item_id`).
+
+    :param df_rcl: DataFrame Pandas con i dati fusi provenienti dall'estrazione.
+    :return: DataFrame Pandas pulito e formattato pronto per il caricamento.
+    """
     log.info("[build_fact_sale_item] Build started")
 
     if df_rcl is None:

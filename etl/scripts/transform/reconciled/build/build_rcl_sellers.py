@@ -9,6 +9,15 @@ log = AppLogger(name="rcl.sellers.build", log_file="rcl_sellers.log")
 
 
 def build_rcl_sellers(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Esegue la pulizia e l'arricchimento dei dati relativi ai venditori (sellers).
+    - Standardizza i nomi delle città (minuscolo, senza accenti, trim).
+    - Valida e formatta la sigla dello stato, associandola a una regione geografica (es. 'sudeste').
+    - Rimuove eventuali duplicati esatti.
+
+    :param dataframe: DataFrame Pandas contenente i dati raw dei venditori dallo staging.
+    :return: DataFrame Pandas pulito e arricchito per l'area reconciled.
+    """
     log.info("[build_rcl_sellers] Build started")
 
     if dataframe is None:

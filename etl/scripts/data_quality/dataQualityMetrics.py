@@ -3,6 +3,13 @@ from pathlib import Path
 import pandas as pd
 
 def build_metrics_summary():
+    """
+    Aggrega i report JSON di Data Quality generati per le varie tabelle 
+    e calcola un riepilogo delle metriche (validità, completezza, coerenza, unicità).
+    Salva i risultati in un file CSV riassuntivo.
+
+    :return: Il percorso assoluto del file CSV generato.
+    """
     base_dir = Path(__file__).resolve().parent
     report_dir = base_dir / "reports"
     output_file = report_dir / "dq_metrics_summary.csv"

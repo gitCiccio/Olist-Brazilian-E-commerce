@@ -13,12 +13,20 @@ class db_connection:
     _instance = None
 
     def __new__(cls):
+        """
+        Garantisce che la classe db_connection sia un Singleton.
+        Crea e restituisce un'unica istanza condivisa per l'intera applicazione.
+        """
         if cls._instance is None:
             log.info(f"Creating new instance of {cls.__name__}")
             cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self):
+        """
+        Inizializza l'istanza caricando le variabili d'ambiente necessarie (URL e Nome del DB).
+        Imposta il flag `initialized` per evitare di ripetere l'operazione nelle chiamate successive.
+        """
         if not hasattr(self, 'initialized'):
             load_dotenv()
             self.database_url = os.getenv("DATABASE_URL")
@@ -28,7 +36,11 @@ class db_connection:
             self.initialized = True
 
     def connect(self):
-        """Open a connection to the database"""
+        """
+        Apre una connessione verso il database Postgres e inizializza un cursore 
+        (RealDictCursor) che restituisce i risultati sotto forma di dizionari.
+        Se la connessione è già attiva, non fa nulla.
+        """
         if self.connection is not None and not self.connection.closed:
             log.debug(f"Connection to {self.database_url} already opened")
             return self
@@ -45,7 +57,10 @@ class db_connection:
             raise DatabaseConnectionError(f"Connection failed: {e}") from e
 
     def disconnect(self):
-        """Close connection to the database"""
+        """
+        Chiude in modo sicuro il cursore e la connessione al database, 
+        liberando le risorse di rete e di sistema.
+        """
         try:
             if self.cursor and not self.cursor.closed:
                 self.cursor.close()
@@ -61,10 +76,19 @@ class db_connection:
 
     # context manager
     def __enter__(self):
+        """
+        Fornisce il supporto al Context Manager (sintassi `with db_connection() as db:`).
+        Invoca automaticamente `connect()`.
+        """
         self.connect()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Chiusura del Context Manager.
+        Esegue la commit della transazione se non ci sono stati errori.
+        In caso contrario, esegue il rollback. Alla fine si disconnette sempre.
+        """
         if exc_type is None:
             self.commit()
         else:
@@ -76,7 +100,11 @@ class db_connection:
     # SQL operations
 
     def execute(self, query, params=None):
-        """Execute a single query with parameters"""
+        """
+        Esegue una singola istruzione SQL (es. SELECT, INSERT, UPDATE, DELETE).
+        Il parametro `params` consente di passare variabili in modo sicuro per 
+        prevenire la SQL injection.
+        """
         try:
             self.cursor.execute(query, params)
             return self
@@ -103,14 +131,24 @@ class db_connection:
 
 
     def fetch_one(self) -> dict | None:
-        """Fetch one row from database"""
+        """
+        Recupera il primo record dal risultato dell'ultima query eseguita.
+        Restituisce un dizionario le cui chiavi sono i nomi delle colonne.
+        """
         return self.cursor.fetchone()
 
     def fetch_all(self):
-        """Fetch all rows from database"""
+        """
+        Recupera tutti i record prodotti dall'ultima query eseguita.
+        Restituisce una lista di dizionari.
+        """
         return self.cursor.fetchall()
 
     def commit(self):
+        """
+        Conferma la transazione corrente, salvando permanentemente 
+        le modifiche apportate sul database.
+        """
         try:
             self.connection.commit()
             log.debug("Transaction committed.")
@@ -119,6 +157,10 @@ class db_connection:
             raise
 
     def rollback(self):
+        """
+        Annulla la transazione corrente. Qualsiasi modifica non sottoposta 
+        a commit viene scartata per mantenere la coerenza dei dati.
+        """
         try:
             self.connection.rollback()
             log.warning("Transaction rolled back.")

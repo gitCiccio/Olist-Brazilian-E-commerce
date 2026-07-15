@@ -112,6 +112,23 @@ def build_dq_report(
     numeric_ranges_transformed: Optional[Dict[str, Dict[str, Any]]] = None,
     extra_metrics: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    """
+    Costruisce un report di Data Quality (DQ) confrontando i dati sorgente e trasformati.
+    Verifica la presenza di valori nulli, stringhe vuote, duplicati sulle business key, 
+    violazioni di dominio e range numerici. Infine, controlla il numero di righe caricate 
+    sulla tabella target nel Data Warehouse.
+
+    Restituisce un dizionario contenente i risultati dei controlli e uno stato 
+    (OK o WARNING) se vengono rilevate anomalie.
+
+    :param job_name: Nome descrittivo del processo di caricamento (es. 'dq_dim_customer').
+    :param source_df: DataFrame dei dati sorgente (reconciled).
+    :param transformed_df: DataFrame dei dati trasformati e pronti per il caricamento.
+    :param engine_dw: Connessione al database DWH per contare le righe caricate.
+    :param loaded_table_name: Nome della tabella DWH su cui effettuare il count.
+    ... parametri opzionali per regole specifiche di DQ.
+    :return: Dizionario contenente il report DQ strutturato.
+    """
 
     required_columns_source = required_columns_source or []
     required_columns_transformed = required_columns_transformed or []
@@ -166,6 +183,13 @@ def build_dq_report(
 
 
 def save_dq_report(report: Dict[str, Any]) -> str:
+    """
+    Salva il dizionario del report di Data Quality in formato JSON 
+    nella directory 'reports' predefinita.
+
+    :param report: Dizionario contenente i dati del report DQ.
+    :return: Percorso assoluto del file JSON salvato.
+    """
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     file_name = f"{report['job_name']}.json"
     file_path = REPORT_DIR / file_name

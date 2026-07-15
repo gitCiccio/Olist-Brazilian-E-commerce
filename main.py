@@ -12,6 +12,14 @@ log = AppLogger(name="main", log_file="main.log")
 
 
 def reset_staging_and_reconciled(engine_staging, engine_reconciled) -> None:
+    """
+    Svuota (TRUNCATE) tutte le tabelle nelle aree di staging e reconciled.
+    Questa funzione viene eseguita all'inizio della pipeline ETL per assicurarsi che 
+    il caricamento parta da uno stato pulito.
+
+    :param engine_staging: Connessione SQLAlchemy al database di staging.
+    :param engine_reconciled: Connessione SQLAlchemy al database reconciled.
+    """
     log.info("[main] Reset staging and reconciled started")
 
     with engine_staging.begin() as conn:

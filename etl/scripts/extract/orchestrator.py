@@ -17,6 +17,17 @@ from sources import SOURCES
 log = AppLogger(name="orchestrator.extract", log_file="orchestrator.log")
 
 def run_staging_phase(engine_write, selected_jobs=None, fail_fast=True, batch_size=5000):
+    """
+    Coordina l'intera fase di Extract & Load in Staging.
+    Scandisce le fonti definite in SOURCES, esegue l'estrazione per ciascuna e 
+    ne salva i risultati nel database di staging.
+
+    :param engine_write: Connessione al database di destinazione (staging).
+    :param selected_jobs: Lista dei job (chiavi di SOURCES) da eseguire. Se None, esegue tutti.
+    :param fail_fast: Se True, interrompe immediatamente l'esecuzione in caso di errore su un job.
+    :param batch_size: Dimensione dei batch per la lettura/scrittura.
+    :return: Un dizionario con l'esito di ogni job.
+    """
     log.info(
         f"[staging.orchestrator] Staging phase started "
         f"(selected_jobs={selected_jobs}, fail_fast={fail_fast}, batch_size={batch_size})"
@@ -64,6 +75,18 @@ def run_extraction(
     target_table: str,
     truncate: bool = False
 ) -> None:
+    """
+    Gestisce l'estrazione incrementale di un singolo file CSV verso una tabella target.
+    Utilizza un sistema di checkpoint per tenere traccia delle righe elaborate e 
+    riprendere da dove si era interrotto in caso di fallimento precedente.
+
+    :param conn: Connessione al database.
+    :param csv_path: Percorso del file CSV sorgente.
+    :param selected_columns: Colonne da estrarre dal file CSV.
+    :param batch_size: Numero di righe lette/scritte per iterazione.
+    :param target_table: Nome della tabella di destinazione (schema.tabella).
+    :param truncate: Se True, forza il reset del checkpoint prima dell'esecuzione.
+    """
     log.info(
         f"[extraction_orchestrator] Starting extraction for file={csv_path}, "
         f"target_table={target_table}, batch_size={batch_size}, truncate={truncate}"
