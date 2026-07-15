@@ -8,6 +8,12 @@ log = AppLogger(name="rcl.sellers.load", log_file="rcl_sellers.log")
 
 
 def extract_sellers_from_staging(engine) -> pd.DataFrame:
+    """
+    Estrae tutti i record dei venditori dalla tabella `stg_sellers` (area di staging).
+    
+    :param engine: Connessione al database di staging.
+    :return: DataFrame Pandas con i dati estratti.
+    """
     log.info("[load_rcl_sellers] Extract from sellers started")
 
     if engine is None:
@@ -33,6 +39,13 @@ def extract_sellers_from_staging(engine) -> pd.DataFrame:
 
 
 def load_rcl_sellers_table(conn, df_rcl: pd.DataFrame) -> None:
+    """
+    Carica i dati dei venditori trasformati nella tabella `rcl_sellers` dell'area reconciled.
+    Esegue prima una TRUNCATE per garantire l'idempotenza del caricamento.
+
+    :param conn: Connessione al database (reconciled).
+    :param df_rcl: DataFrame Pandas con i dati puliti e arricchiti.
+    """
     log.info("[load_rcl_sellers] Load into rcl_sellers started")
 
     if conn is None:

@@ -7,6 +7,16 @@ log = AppLogger(name="rcl.products.build", log_file="rcl_products.log")
 
 
 def build_rcl_products(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Esegue la pulizia e l'arricchimento dei dati dei prodotti.
+    - Corregge eventuali typo nei nomi delle colonne (es. 'product_description_lenght').
+    - Standardizza il nome della categoria (minuscolo, trim).
+    - Converte tutte le misure fisiche (peso, dimensioni) e testuali (lunghezza nome/descrizione) in numerico.
+    - Rimuove eventuali duplicati esatti.
+
+    :param dataframe: DataFrame Pandas contenente i dati raw dei prodotti dallo staging.
+    :return: DataFrame Pandas pulito e formattato per l'area reconciled.
+    """
     log.info("[build_rcl_products] Build started")
 
     if dataframe is None:

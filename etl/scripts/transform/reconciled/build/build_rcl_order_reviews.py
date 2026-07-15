@@ -7,6 +7,16 @@ log = AppLogger(name="rcl.order_reviews.build", log_file="rcl_order_reviews.log"
 
 
 def build_rcl_order_reviews(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Esegue la pulizia e l'arricchimento dei dati delle recensioni degli ordini.
+    - Valida il punteggio della recensione (review_score) verificando che sia tra 1 e 5.
+    - Sostituisce eventuali valori nulli nei campi testuali (titolo e messaggio) con stringhe vuote.
+    - Converte le date in formato datetime.
+    - Elimina eventuali duplicati esatti.
+
+    :param dataframe: DataFrame Pandas contenente i dati raw delle recensioni dallo staging.
+    :return: DataFrame Pandas pulito e formattato per l'area reconciled.
+    """
     log.info("[build_rcl_order_reviews] Build started")
 
     if dataframe is None:

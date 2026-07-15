@@ -1,6 +1,6 @@
 {
   "job_name": "dq_dim_payment",
-  "generated_at": "2026-07-04T15:33:50.111160+00:00",
+  "generated_at": "2026-07-14T20:23:19.393744+00:00",
   "loaded_table_name": "dim_payment",
   "counts": {
     "source_rows": 103886,

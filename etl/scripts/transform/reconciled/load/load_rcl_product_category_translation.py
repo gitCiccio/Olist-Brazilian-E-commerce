@@ -8,6 +8,12 @@ log = AppLogger(name="rcl.category_translation.load", log_file="rcl_category_tra
 
 
 def extract_product_category_translation_from_staging(engine) -> pd.DataFrame:
+    """
+    Estrae tutti i record delle traduzioni delle categorie dalla tabella `stg_product_category_translation`.
+    
+    :param engine: Connessione al database di staging.
+    :return: DataFrame Pandas con i dati estratti.
+    """
     log.info("[load_rcl_product_category_translation] Extract started")
 
     if engine is None:
@@ -31,6 +37,13 @@ def extract_product_category_translation_from_staging(engine) -> pd.DataFrame:
 
 
 def load_rcl_product_category_translation_table(conn, df_rcl: pd.DataFrame) -> None:
+    """
+    Carica le traduzioni delle categorie trasformate nella tabella `rcl_product_category_translation` 
+    dell'area reconciled. Esegue prima una TRUNCATE per garantire l'idempotenza.
+
+    :param conn: Connessione al database (reconciled).
+    :param df_rcl: DataFrame Pandas con i dati puliti.
+    """
     log.info("[load_rcl_product_category_translation] Load started")
 
     if conn is None:

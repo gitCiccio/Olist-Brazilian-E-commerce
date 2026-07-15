@@ -7,6 +7,15 @@ from exception.exceptions import ExtractDataError
 log = AppLogger(name="staging_loader.extract", log_file="staging_loader.log")
 
 def load_to_staging(conn: Connection, chunk: pd.DataFrame, target_table: str) -> None:
+    """
+    Carica un singolo chunk (batch) di dati dal DataFrame Pandas nella tabella 
+    di staging specificata sul database.
+    Utilizza l'inserimento bulk (append) nativo di Pandas.
+
+    :param conn: Connessione SQLAlchemy al database.
+    :param chunk: DataFrame contenente i dati estratti nel batch corrente.
+    :param target_table: Nome della tabella (e schema opzionale, es 'staging.table_name').
+    """
     log.info(
         f"[staging_loader] Loading batch into {target_table} "
         f"with {len(chunk)} rows"

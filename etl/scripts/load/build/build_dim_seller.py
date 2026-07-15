@@ -7,6 +7,16 @@ log = AppLogger(name="dw.build_dim_seller", log_file="dw_load.log")
 
 
 def build_dim_seller(df_rcl: pd.DataFrame) -> pd.DataFrame:
+    """
+    Trasforma i dati dei venditori provenienti da reconciled nel formato atteso dalla `dim_seller`.
+    - Elimina record con chiave naturale (`seller_id`) nulla o vuota.
+    - Sostituisce eventuali valori nulli in regione e città con 'unknown'.
+    - Sostituisce stati nulli con 'XX' (stato invalido di default).
+    - Deduplica mantenendo una sola occorrenza per venditore.
+
+    :param df_rcl: DataFrame Pandas con i dati estratti dall'area reconciled.
+    :return: DataFrame Pandas formattato per il DWH con `natural_key` rinominata.
+    """
     log.info("[build_dim_seller] Build started")
 
     if df_rcl is None:

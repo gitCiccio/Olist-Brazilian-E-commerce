@@ -8,6 +8,12 @@ log = AppLogger(name="rcl.order_reviews.load", log_file="rcl_order_reviews.log")
 
 
 def extract_order_reviews_from_staging(engine) -> pd.DataFrame:
+    """
+    Estrae tutti i record delle recensioni dalla tabella `stg_order_reviews` (area di staging).
+    
+    :param engine: Connessione al database di staging.
+    :return: DataFrame Pandas con i dati estratti.
+    """
     log.info("[load_rcl_order_reviews] Extract from order_reviews started")
 
     if engine is None:
@@ -36,6 +42,13 @@ def extract_order_reviews_from_staging(engine) -> pd.DataFrame:
 
 
 def load_rcl_order_reviews_table(conn, df_rcl: pd.DataFrame) -> None:
+    """
+    Carica i dati delle recensioni trasformati nella tabella `rcl_order_reviews` dell'area reconciled.
+    Esegue prima una TRUNCATE per garantire l'idempotenza.
+
+    :param conn: Connessione al database (reconciled).
+    :param df_rcl: DataFrame Pandas con i dati puliti.
+    """
     log.info("[load_rcl_order_reviews] Load into rcl_order_reviews started")
 
     if conn is None:

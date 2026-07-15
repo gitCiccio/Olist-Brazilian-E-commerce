@@ -22,6 +22,16 @@ VALID_PAYMENT_TYPES = {
 
 
 def build_rcl_order_payments(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Esegue la pulizia e l'arricchimento dei dati relativi ai pagamenti degli ordini.
+    - Mappa i tipi di pagamento usando `PAYMENT_MAPPING` (es. 'boleto' diventa 'ticket').
+    - Sostituisce tipi di pagamento non validi con 'not_defined'.
+    - Converte in numerico in modo sicuro i valori monetari, le rate (installments) e i sequenziali.
+    - Elimina eventuali duplicati esatti.
+
+    :param dataframe: DataFrame Pandas contenente i dati raw dei pagamenti dallo staging.
+    :return: DataFrame Pandas pulito e formattato per l'area reconciled.
+    """
     log.info("[build_rcl_order_payments] Build started")
 
     if dataframe is None:

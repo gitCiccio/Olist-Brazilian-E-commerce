@@ -8,6 +8,12 @@ log = AppLogger(name="rcl.customers.load", log_file="rcl_customers.log")
 
 
 def extract_customers_from_staging(engine) -> pd.DataFrame:
+    """
+    Estrae tutti i record dalla tabella `stg_customers` (area di staging).
+    
+    :param engine: Connessione al database di staging.
+    :return: DataFrame Pandas con i dati estratti.
+    """
     log.info("[load_rcl_customers] Extract from staging customers started")
 
     if engine is None:
@@ -35,6 +41,14 @@ def extract_customers_from_staging(engine) -> pd.DataFrame:
 
 
 def load_rcl_customers_table(conn, df_rcl: pd.DataFrame) -> None:
+    """
+    Carica i dati trasformati nella tabella `rcl_customers` dell'area reconciled.
+    Esegue prima una TRUNCATE per sostituire l'intero dataset, garantendo l'idempotenza 
+    dell'operazione in caso di riesecuzione della pipeline.
+
+    :param conn: Connessione al database (reconciled).
+    :param df_rcl: DataFrame Pandas con i dati puliti e arricchiti.
+    """
     log.info("[load_rcl_customers] Load into rcl_customers started")
 
     if conn is None:

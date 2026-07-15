@@ -7,6 +7,16 @@ log = AppLogger(name="dw.build_dim_product", log_file="dw_load.log")
 
 
 def build_dim_product(df_rcl: pd.DataFrame) -> pd.DataFrame:
+    """
+    Trasforma i dati dei prodotti (già con categoria inglese unita) nel formato per `dim_product`.
+    - Elimina record senza `natural_key` (product_id).
+    - Gestisce categorie mancanti impostandole a 'unknown'.
+    - Verifica e converte gli attributi fisici (peso, dimensioni) in `Int64` (intero con supporto ai NULL).
+    - Deduplica per chiave naturale assicurando unicita.
+
+    :param df_rcl: DataFrame Pandas con i dati estratti dall'area reconciled.
+    :return: DataFrame Pandas formattato per il DWH.
+    """
     log.info("[build_dim_product] Build started")
 
     if df_rcl is None:

@@ -7,6 +7,14 @@ log = AppLogger(name="rcl.category_translation.build", log_file="rcl_category_tr
 
 
 def build_rcl_product_category_translation(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Esegue la pulizia dei dati di traduzione delle categorie di prodotto.
+    - Standardizza i nomi delle categorie (minuscolo, trim) sia in portoghese che in inglese.
+    - Rimuove eventuali duplicati mantenendo solo la prima occorrenza per ogni categoria.
+
+    :param dataframe: DataFrame Pandas contenente i dati raw delle traduzioni dallo staging.
+    :return: DataFrame Pandas pulito e formattato per l'area reconciled.
+    """
     log.info("[build_rcl_product_category_translation] Build started")
 
     if dataframe is None:

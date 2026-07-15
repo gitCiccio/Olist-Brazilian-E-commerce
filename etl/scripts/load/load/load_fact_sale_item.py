@@ -8,6 +8,15 @@ log = AppLogger(name="dw.load_fact_sale_item", log_file="dw_load.log")
 
 
 def extract_fact_sale_item_source(engine) -> pd.DataFrame:
+    """
+    Estrae i dati necessari per popolare la tabella dei fatti `fact_sale_item`.
+    Esegue una query complessa che unisce `rcl_order_items`, `rcl_orders`, `rcl_customers`.
+    Inoltre, calcola il punteggio medio delle recensioni (review_score) per ogni ordine 
+    e seleziona il pagamento primario (payment_sequential = 1).
+
+    :param engine: Connessione al database (schema reconciled).
+    :return: DataFrame Pandas con i dati fusi.
+    """
     log.info("[load_fact_sale_item] Extract started")
 
     if engine is None:
@@ -67,6 +76,14 @@ def extract_fact_sale_item_source(engine) -> pd.DataFrame:
 
 
 def extract_dim_maps(conn):
+    """
+    Estrae le mappature tra chiavi naturali e surrogate keys (SK) dalle tabelle 
+    di dimensione del Data Warehouse.
+
+    :param conn: Connessione al database (schema public/dwh).
+    :return: Tupla contenente i DataFrame di mappatura per product, customer, seller, 
+             payment, e le varie date (purchase, shipping, delivered, estimated).
+    """
     product_map = pd.read_sql(
         """
         SELECT natural_key, surrogate_key
@@ -134,6 +151,18 @@ def extract_dim_maps(conn):
 
 
 def load_fact_sale_item_table(engine, conn, fact_sale_item: pd.DataFrame) -> None:
+    """
+    Carica i dati della tabella dei fatti nel Data Warehouse.
+    - Esegue il lookup delle surrogate keys (SK) incrociando i dati estratti con 
+      le mappature fornite dalle dimensioni.
+    - Verifica l'assenza di nulli sulle chiavi surrogate obbligatorie (product, customer, 
+      seller, purchase_date).
+    - Inserisce i dati finali nella tabella `fact_sale_item` (in append).
+
+    :param engine: Non utilizzato (passato per retrocompatibilità).
+    :param conn: Connessione al database (schema public/dwh).
+    :param fact_sale_item: DataFrame Pandas con i dati elaborati.
+    """
     log.info("[load_fact_sale_item] Load started")
 
     if conn is None:
@@ -223,6 +252,16 @@ def load_fact_sale_item_table(engine, conn, fact_sale_item: pd.DataFrame) -> Non
 
 
 def run_load_fact_sale_item(engine, conn) -> None:
+    """
+    Esegue l'intero flusso di caricamento per `fact_sale_item`:
+    1. Extract dei dati fusi dall'area reconciled.
+    2. Build (calcolo natural_key, aggregazione/item_count, ecc.).
+    3. Load nel DWH (con lookup delle surrogate keys).
+    4. Esecuzione dei controlli di Data Quality (DQ) post-caricamento.
+
+    :param engine: Connessione in lettura (reconciled).
+    :param conn: Connessione in scrittura (dwh).
+    """
     log.info("[load_fact_sale_item] Pipeline started")
 
     df_source = extract_fact_sale_item_source(engine)

@@ -40,6 +40,15 @@ STATE_REGEX = r'^[A-Z]{2}$'
 
 
 def build_rcl_customers(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Esegue la pulizia e l'arricchimento dei dati dei clienti.
+    - Standardizza i nomi delle città (minuscolo, senza accenti, trim).
+    - Valida e formatta la sigla dello stato, associandola a una regione geografica (es. 'sudeste').
+    - Rimuove eventuali duplicati esatti per garantire la coerenza.
+
+    :param dataframe: DataFrame Pandas contenente i dati raw dallo staging.
+    :return: DataFrame Pandas pulito e arricchito per l'area reconciled.
+    """
     log.info("[build_rcl_customers] Build started")
 
     if dataframe is None:
@@ -51,11 +60,6 @@ def build_rcl_customers(dataframe: pd.DataFrame) -> pd.DataFrame:
         raise DataCleaningError("Customers dataframe is empty")
 
     df = dataframe.copy()
-
-    df = df.rename(columns={
-        # aggiungi qui eventuali alias futuri, se serviranno
-        # "customer_zipcode_prefix": "customer_zip_code_prefix",
-    })
 
     required_cols = [
         'customer_id',

@@ -9,6 +9,17 @@ log = AppLogger(name="rcl.geolocation.build", log_file="rcl_geolocation.log")
 
 
 def build_rcl_geolocation(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Esegue la pulizia e l'arricchimento dei dati di geolocalizzazione (CAP, coordinate, città, stato).
+    - Standardizza i nomi delle città (minuscolo, senza accenti, trim).
+    - Valida e formatta la sigla dello stato.
+    - Converte le coordinate geografiche (latitudine, longitudine) in valori numerici, 
+      forzando a NaN i valori invalidi.
+    - Rimuove eventuali duplicati esatti.
+
+    :param dataframe: DataFrame Pandas contenente i dati raw di geolocalizzazione dallo staging.
+    :return: DataFrame Pandas pulito e formattato per l'area reconciled.
+    """
     log.info("[build_rcl_geolocation] Build started")
 
     if dataframe is None:

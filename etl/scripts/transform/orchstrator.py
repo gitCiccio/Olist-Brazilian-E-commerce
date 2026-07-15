@@ -47,6 +47,20 @@ def _run_single_reconciled_job(
     build_fn: Callable,
     load_fn: Callable,
 ) -> int:
+    """
+    Esegue il processo di riconciliazione (Extract -> Transform -> Load) 
+    per una singola entità (es. clienti, ordini, prodotti).
+    Legge i dati dall'area di staging, applica le regole di business (pulizia/trasformazione) 
+    e salva il risultato finale nella tabella reconciled corrispondente.
+
+    :param engine_read: Connessione al DB sorgente (staging).
+    :param engine_write: Connessione al DB di destinazione (reconciled).
+    :param job_name: Nome logico del job (es. 'customers').
+    :param extract_fn: Funzione usata per estrarre il DataFrame di staging.
+    :param build_fn: Funzione usata per applicare le logiche di trasformazione sul DataFrame.
+    :param load_fn: Funzione usata per caricare il DataFrame finale sulla destinazione.
+    :return: Il numero totale di righe elaborate e inserite.
+    """
     log.info(f"[reconciled.orchestrator] Starting job: {job_name}")
 
     if engine_read is None or engine_write is None:
@@ -74,6 +88,17 @@ def run_reconciled_phase(
     selected_jobs: Optional[List[str]] = None,
     fail_fast: bool = True,
 ) -> Dict[str, str]:
+    """
+    Coordina l'intera fase di trasformazione/reconciled del Data Warehouse.
+    Esegue in sequenza logica (rispettando le dipendenze esterne se presenti) i job 
+    definiti in `jobs`. Ogni job elabora una specifica area semantica (es. customers, sellers, orders).
+
+    :param engine_read: Connessione DB sorgente (staging).
+    :param engine_write: Connessione DB destinazione (reconciled).
+    :param selected_jobs: Lista dei job da eseguire (se None li esegue tutti nell'ordine di default).
+    :param fail_fast: Se True, interrompe immediatamente in caso di errore di un job.
+    :return: Dizionario contenente lo stato di esecuzione di ciascun job lanciato.
+    """
     log.info(
         f"[reconciled.orchestrator] Reconciled phase started "
         f"(engine_read={engine_read}, engine_write={engine_write}, "

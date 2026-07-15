@@ -8,6 +8,12 @@ log = AppLogger(name="rcl.orders.load", log_file="rcl_orders.log")
 
 
 def extract_orders_from_staging(engine) -> pd.DataFrame:
+    """
+    Estrae tutti i record degli ordini dalla tabella `stg_orders` (area di staging).
+    
+    :param engine: Connessione al database di staging.
+    :return: DataFrame Pandas con i dati estratti.
+    """
     log.info("[load_rcl_orders] Extract from orders started")
 
     if engine is None:
@@ -36,6 +42,13 @@ def extract_orders_from_staging(engine) -> pd.DataFrame:
 
 
 def load_rcl_orders_table(conn, df_rcl: pd.DataFrame) -> None:
+    """
+    Carica i dati degli ordini trasformati nella tabella `rcl_orders` dell'area reconciled.
+    Esegue prima una TRUNCATE per garantire l'idempotenza.
+
+    :param conn: Connessione al database (reconciled).
+    :param df_rcl: DataFrame Pandas con i dati degli ordini puliti.
+    """
     log.info("[load_rcl_orders] Load into rcl_orders started")
 
     if conn is None:

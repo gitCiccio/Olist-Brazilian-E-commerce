@@ -10,6 +10,14 @@ log = AppLogger(name="dw.load_dim_date", log_file="dw_load.log")
 
 
 def extract_date_sources(engine) -> pd.DataFrame:
+    """
+    Estrae tutte le date distinte (purchase, delivery, estimated delivery, shipping limit) 
+    dalle tabelle `rcl_orders` e `rcl_order_items` dell'area reconciled. Le date vengono 
+    unite tramite UNION per popolare in modo esaustivo la dimensione tempo.
+
+    :param engine: Connessione al database (schema reconciled).
+    :return: DataFrame Pandas con l'elenco delle date univoche.
+    """
     log.info("[load_dim_date] Extract date sources started")
 
     if engine is None:
@@ -47,6 +55,13 @@ def extract_date_sources(engine) -> pd.DataFrame:
 
 
 def load_dim_date_table(conn, dim_date: pd.DataFrame) -> None:
+    """
+    Carica i dati temporali nella tabella `dim_date` del Data Warehouse.
+    Nota: la TRUNCATE della tabella è gestita dall'orchestratore, qui avviene solo l'inserimento in append.
+
+    :param conn: Connessione al database (schema public/dwh).
+    :param dim_date: DataFrame Pandas con i dati pronti per la dimensione data.
+    """
     log.info("[load_dim_date] Load into dim_date started")
 
     if conn is None:
@@ -96,6 +111,16 @@ def load_dim_date_table(conn, dim_date: pd.DataFrame) -> None:
 
 
 def run_load_dim_date(engine, conn) -> None:
+    """
+    Esegue l'intero flusso di caricamento per `dim_date`:
+    1. Extract di tutte le date uniche da reconciled.
+    2. Build (estrazione di giorno, mese, anno, trimestre, ecc.).
+    3. Load nel DWH.
+    4. Esecuzione dei controlli di Data Quality (DQ) post-caricamento.
+
+    :param engine: Connessione in lettura (reconciled).
+    :param conn: Connessione in scrittura (dwh).
+    """
     log.info("[load_dim_date] Pipeline started")
 
     df_dates = extract_date_sources(engine)

@@ -8,6 +8,12 @@ log = AppLogger(name="rcl.products.load", log_file="rcl_products.log")
 
 
 def extract_products_from_staging(engine) -> pd.DataFrame:
+    """
+    Estrae tutti i record dei prodotti dalla tabella `stg_products` (area di staging).
+    
+    :param engine: Connessione al database di staging.
+    :return: DataFrame Pandas con i dati estratti.
+    """
     log.info("[load_rcl_products] Extract from products started")
 
     if engine is None:
@@ -37,6 +43,13 @@ def extract_products_from_staging(engine) -> pd.DataFrame:
 
 
 def load_rcl_products_table(conn, df_rcl: pd.DataFrame) -> None:
+    """
+    Carica i dati dei prodotti trasformati nella tabella `rcl_products` dell'area reconciled.
+    Esegue prima una TRUNCATE per garantire l'idempotenza.
+
+    :param conn: Connessione al database (reconciled).
+    :param df_rcl: DataFrame Pandas con i dati puliti.
+    """
     log.info("[load_rcl_products] Load into rcl_products started")
 
     if conn is None:

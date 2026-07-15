@@ -14,6 +14,15 @@ CHECKPOINT_TABLE = "staging.etl_checkpoint"
 
 
 def get_or_create_checkpoint(conn, source_file: str, total_rows: int) -> CheckpointInfo:
+    """
+    Recupera il checkpoint associato al file sorgente. Se non esiste, ne crea uno nuovo 
+    con stato 'CREATED'. Utile per capire da dove riprendere un'estrazione interrotta.
+
+    :param conn: Connessione al database (SQLAlchemy).
+    :param source_file: Percorso del file sorgente (usato come identificatore).
+    :param total_rows: Numero totale di righe previste nel file.
+    :return: Oggetto CheckpointInfo con i dettagli dello stato attuale.
+    """
     log.info(f"[checkpoint_service] get_or_create_checkpoint called with source_file={source_file}, total_rows={total_rows}")
 
     if conn is None:
@@ -94,6 +103,13 @@ def get_or_create_checkpoint(conn, source_file: str, total_rows: int) -> Checkpo
 
 
 def mark_checkpoint_running(conn, checkpoint_id: str) -> None:
+    """
+    Imposta lo stato del checkpoint a 'RUNNING', indicando che l'elaborazione del file 
+    è in corso. Può essere chiamato solo se lo stato attuale è 'CREATED'.
+
+    :param conn: Connessione al database.
+    :param checkpoint_id: ID univoco del checkpoint.
+    """
     log.info(f"[checkpoint_service] Marking checkpoint {checkpoint_id} as RUNNING")
 
     if conn is None:
@@ -159,6 +175,14 @@ def mark_checkpoint_running(conn, checkpoint_id: str) -> None:
 
 
 def update_checkpoint_progress(conn, checkpoint_id: str, last_row: int) -> None:
+    """
+    Aggiorna il progresso del checkpoint salvando il numero dell'ultima riga elaborata 
+    con successo. Fondamentale per i restart point in caso di crash.
+
+    :param conn: Connessione al database.
+    :param checkpoint_id: ID univoco del checkpoint.
+    :param last_row: Numero dell'ultima riga elaborata in modo confermato.
+    """
     log.info(f"[checkpoint_service] Updating checkpoint {checkpoint_id}")
 
     if conn is None:
@@ -240,6 +264,13 @@ def update_checkpoint_progress(conn, checkpoint_id: str, last_row: int) -> None:
 
 
 def mark_checkpoint_completed(conn, checkpoint_id: str) -> None:
+    """
+    Segna il checkpoint come 'COMPLETED', confermando che il file sorgente 
+    è stato estratto e caricato interamente con successo.
+
+    :param conn: Connessione al database.
+    :param checkpoint_id: ID univoco del checkpoint.
+    """
     log.info(f"[checkpoint_service] Marking checkpoint {checkpoint_id} as COMPLETED")
 
     if conn is None:
@@ -305,6 +336,14 @@ def mark_checkpoint_completed(conn, checkpoint_id: str) -> None:
 
 
 def mark_checkpoint_failed(conn, checkpoint_id: str, error_message: str | None = None) -> None:
+    """
+    Registra il fallimento dell'elaborazione, impostando lo stato a 'FAILED' e 
+    salvando l'eventuale messaggio d'errore.
+
+    :param conn: Connessione al database.
+    :param checkpoint_id: ID univoco del checkpoint.
+    :param error_message: Stringa opzionale con il dettaglio dell'errore.
+    """
     log.info(f"[checkpoint_service] Marking checkpoint {checkpoint_id} as FAILED")
 
     if conn is None:
@@ -371,6 +410,13 @@ def mark_checkpoint_failed(conn, checkpoint_id: str, error_message: str | None =
 
 
 def reset_checkpoint(conn, source_file: str) -> None:
+    """
+    Forza il reset di un checkpoint esistente, riportandolo allo stato 'CREATED' e 
+    azzerando il contatore delle righe. Utilizzato in caso di TRUNCATE o ripartenze forzate.
+
+    :param conn: Connessione al database.
+    :param source_file: Percorso del file sorgente da resettare.
+    """
     log.info(f"[checkpoint_service] Resetting checkpoint for source file: {source_file}")
 
     if conn is None:

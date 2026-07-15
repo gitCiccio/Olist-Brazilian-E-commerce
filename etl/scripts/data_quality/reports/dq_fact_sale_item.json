@@ -1,6 +1,6 @@
 {
   "job_name": "dq_fact_sale_item",
-  "generated_at": "2026-07-04T15:34:19.778533+00:00",
+  "generated_at": "2026-07-14T20:23:52.959544+00:00",
   "loaded_table_name": "fact_sale_item",
   "counts": {
     "source_rows": 112650,

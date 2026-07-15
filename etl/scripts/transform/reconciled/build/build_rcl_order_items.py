@@ -7,6 +7,15 @@ log = AppLogger(name="rcl.order_items.build", log_file="rcl_order_items.log")
 
 
 def build_rcl_order_items(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Esegue la pulizia e l'arricchimento dei dati delle righe d'ordine (order items).
+    - Effettua il cast e la pulizia degli identificativi (order_id, product_id, seller_id).
+    - Converte in modo sicuro i valori numerici (prezzo, spese di spedizione) e le date.
+    - Rimuove eventuali duplicati esatti.
+
+    :param dataframe: DataFrame Pandas contenente i dati raw degli order_items dallo staging.
+    :return: DataFrame Pandas pulito e formattato per l'area reconciled.
+    """
     log.info("[build_rcl_order_items] Build started")
 
     if dataframe is None:

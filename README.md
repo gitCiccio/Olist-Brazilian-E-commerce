@@ -1,145 +1,147 @@
-# Olist Brazilian E-commerce
+# Olist Brazilian E-commerce Data Warehouse
 
 ## Panoramica del Progetto
 
-**Olist** è il più grande marketplace aggregatore del Brasile. Non vende prodotti propri — fa da intermediario tra piccole e medie imprese brasiliane (SMB) e i grandi marketplace come Mercado Livre e Amazon Brasil. Con un unico contratto, un venditore ottiene visibilità su tutte le piattaforme contemporaneamente.
+**Olist** è il più grande marketplace aggregatore del Brasile. Questo progetto consiste nella costruzione di un **Data Warehouse (Star Schema)** partendo dal dataset pubblico di Olist.
+L'obiettivo è stato sviluppare una pipeline **ETL (Extract, Transform, Load)** robusta in Python, che ingerisca grandi moli di dati grezzi (CSV), li pulisca in un livello intermedio (Reconciled) e li carichi nel Data Warehouse finale su PostgreSQL, applicando inoltre rigorosi controlli di **Data Quality**.
 
-***
+---
+
+## Architettura della Pipeline ETL
+
+Il progetto implementa un'architettura multi-livello governata da un orchestratore centrale (`main.py`):
+
+1. **Extract (Staging Area)**
+   - Lettura dei file CSV grezzi tramite l'utilizzo di chunk in Pandas (per ottimizzare la memoria).
+   - Inserimento rapido nello schema `staging`.
+   - Meccanismo di Checkpoint per tolleranza agli errori e ripresa delle estrazioni interrotte senza ripartire da zero.
+
+2. **Transform (Reconciled Layer)**
+   - Estrazione dallo schema staging.
+   - Pulizia, normalizzazione delle stringhe (es. lowercasing, rimozione accenti), conversione coerente dei tipi di dato e gestione dei valori nulli.
+   - Salvataggio nello schema `reconciled`, che rappresenta una "Golden Copy" relazionale del database transazionale originale.
+
+3. **Load (Data Warehouse / Star Schema)**
+   - Trasformazione dai modelli relazionali a modelli puramente analitici (Star Schema).
+   - Generazione di chiavi naturali composite o derivate (`natural_key`).
+   - Caricamento nello schema `dwh` organizzato in **Fact tables** (es. `fact_sale_item`) e **Dimension tables** (es. `dim_customer`, `dim_product`).
+
+4. **Data Quality**
+   - Modulo dedicato alla validazione post-caricamento nel Data Warehouse.
+   - Controlli strict su: completezza (assenza di nulli non previsti), validità dei domini (es. codici stati brasiliani, tipologie pagamenti), unicità delle business keys e limiti numerici.
+   - Generazione di report JSON dettagliati per singola tabella e di un file riassuntivo (Data Quality Metrics CSV) nella cartella `exports/` (o all'interno di `data_quality/reports`).
+
+---
 
 ## Cosa Contiene il Dataset
 
-Il dataset raccoglie **100.000 ordini reali** effettuati tra il **2016 e il 2018** su marketplace brasiliani. Ogni ordine può essere analizzato da diverse angolazioni:
+Il dataset originale raccoglie oltre **100.000 ordini reali** effettuati tra il **2016 e il 2018** su marketplace partner di Olist in Brasile. Offre diverse prospettive di analisi:
 
-- **Stato dell'ordine** — approvato, spedito, consegnato, cancellato
-- **Prezzi e spese di spedizione** — valore del prodotto e costo logistico
-- **Metodi di pagamento** — carta di credito, boleto, voucher, debito
-- **Localizzazione del cliente** — stato e città di destinazione
-- **Attributi del prodotto** — categoria, peso, dimensioni
-- **Recensioni dei clienti** — punteggio da 1 a 5 stelle e commento testuale
+- **Clienti**: distribuiti prevalentemente nella zona sud-orientale (es. São Paulo).
+- **Venditori**: Piccole e medie imprese brasiliane (PMI).
+- **Ordini e Pagamenti**: Dallo stato della consegna (approvato, spedito, ecc.) al metodo di pagamento (carta di credito, boleto, voucher).
+- **Prodotti**: Catalogo di 71 categorie (con dizionario di traduzione inglese-portoghese).
+- **Recensioni**: Punteggio (1-5 stelle) e commenti testuali lasciati dai consumatori post-vendita.
 
-***
+---
 
-## Clienti
+## Modello Dati
 
-I clienti sono i **consumatori finali brasiliani** che acquistano online tramite i marketplace partner di Olist.
+Il progetto crea dinamicamente tre schemi principali sul database PostgreSQL.
 
-- La maggioranza si trova nello stato di **São Paulo (SP)** — oltre 40.000 ordini tra 2016 e 2018, anche perché Olist ha sede lì
-- La distribuzione geografica è concentrata nella **zona sud-orientale del Brasile** (SP, RJ, MG)
-- Spesa media per ordine: circa **125 Real brasiliani** (~25€)
+### 1. Schema Reconciled (Relazionale)
+Rispecchia la struttura originale e normalizzata del dataset:
+- **Anagrafiche:** `customers`, `sellers`, `products`, `category_translation`, `geolocation`
+- **Dati Transazionali:** `orders` (centrale), `order_items`, `order_payments`, `order_reviews`
 
-***
+### 2. Schema DWH (Star Schema)
+Progettato e denormalizzato per massimizzare le performance di query analitiche e dashboarding:
+- **Dimensioni**: `dim_customer`, `dim_seller`, `dim_product`, `dim_payment`, `dim_date`
+- **Fatti**: `fact_order` (misurazioni aggregate sull'ordine), `fact_sale_item` (dettaglio granulare delle singole vendite)
 
-## Venditori
-
-I venditori sono **piccole e medie imprese brasiliane (PMI)** che utilizzano Olist come vetrina per raggiungere più piattaforme.
-
-- Oltre **45.000 venditori attivi** sulla piattaforma
-- Non gestiscono la logistica in autonomia — si affidano ai **partner logistici di Olist**
-- Concentrati prevalentemente negli stati di **SP, PR, MG**
-- Vendono prodotti fisici appartenenti a qualsiasi categoria
-
-***
-
-## Prodotti e Categorie
-
-Il catalogo copre **71 categorie** di prodotti fisici, tutte con nome originale in portoghese tradotto in inglese tramite la tabella `category_translation`.
-
-| Categoria (EN) | Categoria (PT) | Caratteristica |
-|---|---|---|
-| Bed, Bath & Table | cama_mesa_banho | La più venduta in volume |
-| Beauty & Health | beleza_saude | Alto volume di ordini |
-| Sports & Leisure | esporte_lazer | Molto popolare |
-| Computers & Accessories | informatica_acessorios | Alto valore medio per ordine |
-| Furniture & Decor | moveis_decoracao | Alto valore medio per ordine |
-| Housewares | utilidades_domesticas | Alto volume di ordini |
-
-***
-
-## Aree Geografiche
-
-Il dataset copre **tutti i 27 stati brasiliani**, con concentrazione nelle aree:
-
-| Area | Stati | Note |
-|---|---|---|
-| **Sud-est** | SP, RJ, MG, ES | Zona più ricca, maggioranza degli ordini e venditori |
-| **Sud** | PR, RS, SC | Alta presenza di venditori |
-| **Nord-est** | BA, CE, PE | Crescita rapida nel periodo 2016–2018 |
-| **Nord / Centro-ovest** | AM, GO, DF... | Presenza ridotta ma in crescita |
-
-La tabella `geolocation` collega ogni **CEP (codice postale)** a coordinate geografiche (lat/lng), città e stato.
-
-***
-
-## Pagamenti
-
-Ogni ordine può essere pagato con **uno o più metodi** combinati (es. parte con carta, parte con voucher):
-
-- **Carta di credito** (`credit_card`) — metodo dominante, fino a 12 rate mensili
-- **Boleto bancário** (`boleto`) — equivalente brasiliano del pagamento in contanti/bonifico
-- **Voucher** (`voucher`) — buoni sconto applicati all'ordine
-- **Carta di debito** (`debit_card`) — pagamento immediato
-
-***
-
-## Recensioni
-
-Dopo ogni consegna, il cliente riceve una notifica e può lasciare una recensione:
-
-- **Punteggio** da 1 a 5 stelle (`review_score`)
-- **Titolo** e **commento testuale** opzionali, in portoghese
-- **Data di creazione** della recensione e **data di risposta** del venditore
-- Prodotti con tempi di consegna rispettati tendono ad avere punteggi mediamente più alti
-
-***
-
-## Schema del Database Riconciliato
-
-Il database riconciliato è composto da **9 tabelle** che rispecchiano fedelmente la struttura del dataset originale:
-
-| Tabella | Descrizione | Righe (approx.) |
-|---|---|---|
-| `customers` | Clienti che hanno effettuato ordini | ~99.000 |
-| `sellers` | Venditori attivi sulla piattaforma | ~3.000 |
-| `products` | Catalogo prodotti | ~33.000 |
-| `category_translation` | Dizionario categorie PT → EN | 71 |
-| `geolocation` | Coordinate geografiche per CAP | ~1.000.000 |
-| `orders` | Ordini effettuati (tabella centrale) | ~100.000 |
-| `order_items` | Articoli per ogni ordine | ~115.000 |
-| `order_payments` | Pagamenti per ogni ordine | ~104.000 |
-| `order_reviews` | Recensioni dei clienti | ~99.000 |
-
-***
+---
 
 ## Stack Tecnologico
 
 | Componente | Tecnologia |
 |---|---|
-| Database | PostgreSQL 16 (Docker) |
-| ORM | SQLAlchemy 2.x |
-| Linguaggio | Python 3.11 |
-| Gestione dipendenze | pip + requirements.txt |
-| Configurazione | python-dotenv (.env) |
-| IDE | PyCharm |
-| Containerizzazione | Docker + Docker Compose |
+| **Database** | PostgreSQL 16 (Docker Multi-Schema: staging, reconciled, dwh) |
+| **Connessione DB** | SQLAlchemy (Core per l'Engine) + psycopg2-binary |
+| **Linguaggio** | Python 3.11 |
+| **Data Processing** | Pandas |
+| **Gestione Dipendenze** | pip + requirements.txt |
+| **Configurazione** | python-dotenv (.env) |
+| **IDE** | PyCharm |
+| **Containerizzazione** | Docker + Docker Compose |
 
-***
+---
 
 ## Struttura del Progetto
 
-```
-dw_exam_project/
-├── docker-compose.yml         # Configurazione Docker (PostgreSQL)
-├── .env                       # Credenziali database (non committare!)
+```text
+brazilian_e_commerce_dw/
+├── docker-compose.yml         # Configurazione Docker (PostgreSQL multi-schema)
+├── .env                       # Credenziali database (non committato)
 ├── .gitignore
-├── requirements.txt
-├── db/
-│   ├── __init__.py
-│   ├── models.py              # Tabelle SQLAlchemy (Fase 1.3)
-│   └── create_db.py           # Script creazione DB
+├── requirements.txt           # Dipendenze del progetto
+├── main.py                    # Entry point (Orchestratore) principale della pipeline ETL
+├── db/                        # Script SQL per la creazione dei DB layer
+│   ├── staging_area.sql       
+│   ├── reconciled_layer.sql   
+│   └── create_star_schema.sql 
 ├── data/
-│   └── raw/                   # CSV originali Olist
+│   └── raw/                   # Cartella destinata ai CSV originali Olist (ignorati da Git)
 ├── etl/
-│   └── load_raw.py            # Caricamento CSV → DB (Fase 2.1)
-└── cleaning/
-    └── data_quality.py        # Data cleaning (Fase 2.2)
+│   ├── sources.py             # Definizione metadati (tipi di colonna e file mapping)
+│   └── scripts/               # Core Logics della pipeline suddiviso in fasi
+│       ├── extract/           # Lettura CSV -> Staging (Chunking + Checkpoints)
+│       ├── transform/         # Pulizia Dati -> Reconciled
+│       ├── load/              # Popolamento Dimensioni e Fatti -> Star Schema
+│       └── data_quality/      # Validazioni post-caricamento e Reportistica DQ
+├── exports/                   # Eventuali report finali o output esportati
+├── exception/                 # Gestori custom per le eccezioni ETL
+├── logger/                    # Gestore centralizzato per i file di log
+└── project_documentation/     # Documentazione architetturale estesa e note di progetto
 ```
+
+---
+
+## Come Eseguire il Progetto
+
+1. **Popolare i Dati Raw:**
+   Scaricare i CSV dal dataset pubblico di Olist e posizionarli all'interno della cartella `data/raw/`.
+
+2. **Avviare il Database:**
+   Assicurati di avere Docker e Docker Compose installati, quindi da terminale:
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Configurare l'Ambiente Python:**
+   ```bash
+   python -m venv .venv
+   
+   # Su Windows:
+   .venv\Scripts\activate
+   # Su Linux/Mac:
+   source .venv/bin/activate
+   
+   pip install -r requirements.txt
+   ```
+
+4. **Configurare le Variabili d'Ambiente:**
+   Crea un file `.env` nella root prendendo a modello le tue credenziali (coerenti con `docker-compose.yml`). Esempio:
+   ```env
+   DB_HOST=localhost
+   DB_PORT=5433
+   DB_NAME=postgres
+   DB_USER=postgres
+   DB_PASS=password
+   ```
+
+5. **Avviare la Pipeline ETL:**
+   Basta eseguire l'orchestratore. Il progetto lancerà automaticamente in sequenza la creazione delle tabelle SQL, le fasi di Extract, Transform, Load e la fase di Data Quality.
+   ```bash
+   python main.py
+   ```
+   *Nota: L'esecuzione completa potrebbe richiedere alcuni minuti a causa dell'ingente volume di dati (es. oltre 1 milione di righe per la tabella geolocation).*

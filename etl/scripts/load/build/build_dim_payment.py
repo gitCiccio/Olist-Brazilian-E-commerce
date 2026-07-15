@@ -15,6 +15,14 @@ VALID_PAYMENT_TYPES = {
 
 
 def normalize_payment_type(value: str) -> str:
+    """
+    Normalizza la tipologia di pagamento per conformarsi ai valori ammessi.
+    - Sostituisce i nulli e le stringhe non riconosciute con 'not_defined'.
+    - Effettua il mapping (es. 'boleto' diventa 'ticket').
+
+    :param value: Il tipo di pagamento raw (stringa).
+    :return: Il tipo di pagamento normalizzato.
+    """
     if pd.isna(value):
         return "not_defined"
 
@@ -34,6 +42,17 @@ def normalize_payment_type(value: str) -> str:
 
 
 def build_dim_payment(df_rcl: pd.DataFrame) -> pd.DataFrame:
+    """
+    Costruisce la dimensione dei pagamenti (dim_payment) a partire dai dati raw.
+    - Applica la normalizzazione per il tipo di pagamento (payment_type).
+    - Valida e corregge il numero di rate (payment_installments), forzando a 0 
+      i valori nulli o negativi.
+    - Deduplica per ottenere solo combinazioni uniche (tipo, rate).
+    La surrogate_key verrà assegnata in fase di INSERT/autoincrement sul db.
+
+    :param df_rcl: DataFrame Pandas contenente i dati raw dei pagamenti.
+    :return: DataFrame Pandas formattato per la dimensione dei pagamenti.
+    """
     log.info("[build_dim_payment] Build started")
 
     if df_rcl is None:

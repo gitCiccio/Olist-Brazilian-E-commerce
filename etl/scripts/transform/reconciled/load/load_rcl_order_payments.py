@@ -8,6 +8,12 @@ log = AppLogger(name="rcl.order_payments.load", log_file="rcl_order_payments.log
 
 
 def extract_order_payments_from_staging(engine) -> pd.DataFrame:
+    """
+    Estrae tutti i record dei pagamenti dalla tabella `stg_order_payments` (area di staging).
+    
+    :param engine: Connessione al database di staging.
+    :return: DataFrame Pandas con i dati estratti.
+    """
     log.info("[load_rcl_order_payments] Extract from order_payments started")
 
     if engine is None:
@@ -34,6 +40,13 @@ def extract_order_payments_from_staging(engine) -> pd.DataFrame:
 
 
 def load_rcl_order_payments_table(conn, df_rcl: pd.DataFrame) -> None:
+    """
+    Carica i dati dei pagamenti trasformati nella tabella `rcl_order_payments` dell'area reconciled.
+    Esegue prima una TRUNCATE per garantire l'idempotenza.
+
+    :param conn: Connessione al database (reconciled).
+    :param df_rcl: DataFrame Pandas con i dati puliti.
+    """
     log.info("[load_rcl_order_payments] Load into rcl_order_payments started")
 
     if conn is None:

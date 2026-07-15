@@ -2,6 +2,18 @@ from etl.scripts.data_quality.dq_utils import build_dq_report, save_dq_report
 
 
 def run_dq_fact_order(source_df, transformed_df, engine_dw):
+    """
+    Esegue i controlli di Data Quality per la fact table 'fact_order'.
+    - Aggiunge metriche custom (es. controllo su tempi di consegna negativi).
+    - Verifica la completezza delle chiavi e date obbligatorie.
+    - Controlla i range di validità per il valore dei pagamenti (>=0) e il punteggio recensioni (0-5).
+    - Valida il dominio della tipologia di pagamento.
+
+    :param source_df: DataFrame dei dati ordine grezzi.
+    :param transformed_df: DataFrame dei dati ordine trasformati.
+    :param engine_dw: Connessione al Data Warehouse.
+    :return: Il percorso al file di report JSON generato.
+    """
     extra_metrics = {}
     if "delivery_days" in transformed_df.columns:
         extra_metrics["negative_delivery_days"] = int(

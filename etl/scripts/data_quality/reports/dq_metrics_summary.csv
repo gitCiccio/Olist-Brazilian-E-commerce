@@ -4,5 +4,4 @@ dq_dim_date.json,dq_dim_date,dim_date,dimension,718,717,717,,100.0,100.0,100.0,O
 dq_dim_payment.json,dq_dim_payment,dim_payment,dimension,103886,28,28,100.0,100.0,100.0,100.0,OK
 dq_dim_product.json,dq_dim_product,dim_product,dimension,32951,32951,32951,,100.0,100.0,100.0,OK
 dq_dim_seller.json,dq_dim_seller,dim_seller,dimension,3095,3095,3095,100.0,100.0,100.0,100.0,OK
-dq_fact_order.json,dq_fact_order,fact_order,fact,101837,99441,99441,100.0,100.0,100.0,100.0,OK
 dq_fact_sale_item.json,dq_fact_sale_item,fact_sale_item,fact,112650,112650,112650,100.0,100.0,100.0,100.0,OK

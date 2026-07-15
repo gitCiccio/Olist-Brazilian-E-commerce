@@ -1,6 +1,6 @@
 {
   "job_name": "dq_dim_customer",
-  "generated_at": "2026-07-04T15:33:46.832991+00:00",
+  "generated_at": "2026-07-14T20:23:14.876258+00:00",
   "loaded_table_name": "dim_customer",
   "counts": {
     "source_rows": 99441,

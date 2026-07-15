@@ -2,6 +2,17 @@ from etl.scripts.data_quality.dq_utils import build_dq_report, save_dq_report
 
 
 def run_dq_fact_sale_item(source_df, transformed_df, engine_dw):
+    """
+    Esegue i controlli di Data Quality per la fact table 'fact_sale_item'.
+    - Verifica la completezza delle chiavi di ordine, item e riferimenti dimensionali.
+    - Controlla l'unicità della chiave naturale composta (`order_id` + `order_item_id`).
+    - Valida i range numerici di prezzi e costi di trasporto (non negativi).
+
+    :param source_df: DataFrame dei dati item grezzi.
+    :param transformed_df: DataFrame dei dati item trasformati.
+    :param engine_dw: Connessione al Data Warehouse.
+    :return: Il percorso al file di report JSON generato.
+    """
     report = build_dq_report(
         job_name="dq_fact_sale_item",
         source_df=source_df,
